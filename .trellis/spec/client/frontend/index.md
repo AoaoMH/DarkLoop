@@ -1,39 +1,46 @@
-# Frontend Development Guidelines
+# Client Frontend Guidelines
 
-> Best practices for frontend development in this project.
+> `@darkloop/client` — React 19 + Vite 6 + Phaser 3.87 + Zustand 5. The game UI is split into a React DOM layer and a Phaser canvas layer, connected by `battleBridge`.
 
 ---
 
 ## Overview
 
-This directory contains guidelines for frontend development. Fill in each file with your project's specific conventions.
+The client has two rendering layers that never import each other directly:
+- **React DOM** (`components/`) — menus, panels, battle HUD
+- **Phaser Canvas** (`game/scenes/`) — battle sprites, animations, target selection
+
+All cross-layer communication goes through `battleBridge` (a `Phaser.Events.EventEmitter` singleton). Global state lives in a single Zustand store (`gameStore.ts`).
 
 ---
 
 ## Guidelines Index
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Component Guidelines](./component-guidelines.md) | Component patterns, props, composition | To fill |
-| [Hook Guidelines](./hook-guidelines.md) | Custom hooks, data fetching patterns | To fill |
-| [State Management](./state-management.md) | Local state, global state, server state | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Type Safety](./type-safety.md) | Type patterns, validation | To fill |
+| Guide | Description |
+|-------|-------------|
+| [Directory Structure](./directory-structure.md) | Package layout, two-layer architecture, naming conventions |
+| [Component Guidelines](./component-guidelines.md) | Function components, props, sub-components, BEM CSS, store selectors |
+| [Hook Guidelines](./hook-guidelines.md) | useState, useEffect for battleBridge, no custom hooks yet |
+| [State Management](./state-management.md) | Single Zustand store, immutable updates, localStorage persistence |
+| [Quality Guidelines](./quality-guidelines.md) | Import ordering, @shared alias, DOM↔Phaser boundary, forbidden patterns |
+| [Type Safety](./type-safety.md) | Import types from @shared, local props interfaces, Phaser definite assignment |
 
 ---
 
-## How to Fill These Guidelines
+## Key Facts
 
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+- **Path alias**: `@shared/*` maps to `packages/shared/src/` (configured in `tsconfig.json` + `vite.config.ts`)
+- **Comments in Chinese** — inline comments use Chinese (中文)
+- **Single CSS file** — `styles/global.css` contains all styles, BEM naming
+- **No test files** — the project has no test framework configured
+- **`hooks/` directory is empty** — custom hooks are reserved for future extraction
+- **Build**: `tsc && vite build` — TypeScript must pass before Vite bundles
 
 ---
 
-**Language**: All documentation should be written in **English**.
+## Verification
+
+```bash
+cd packages/client && pnpm run typecheck   # tsc --noEmit
+cd packages/client && pnpm run build       # tsc && vite build
+```

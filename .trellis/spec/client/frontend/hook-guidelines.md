@@ -1,51 +1,99 @@
 # Hook Guidelines
 
-> How hooks are used in this project.
+> React hook usage in `@darkloop/client`. The `hooks/` directory is currently empty — custom hooks are reserved for future extraction. In-component hook usage follows the patterns below.
 
 ---
 
-## Overview
+## When This Applies
 
-<!--
-Document your project's hook conventions here.
-
-Questions to answer:
-- What custom hooks do you have?
-- How do you handle data fetching?
-- What are the naming conventions?
-- How do you share stateful logic?
--->
-
-(To be filled by the team)
+All `.tsx` files in `packages/client/src/components/` and `App.tsx`.
 
 ---
 
-## Custom Hook Patterns
+## Local Patterns
 
-<!-- How to create and structure custom hooks -->
+### useState for local UI state
 
-(To be filled by the team)
+Component-local state (modal open, selected index, hover state) uses `useState`:
+
+```typescript
+// packages/client/src/components/TurnBattleUI.tsx
+const [showResult, setShowResult] = useState(false);
+const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
+```
+
+### useEffect for battleBridge subscriptions
+
+When a component needs to listen to Phaser events, subscribe in `useEffect` with an empty dependency array and return a cleanup function:
+
+```typescript
+useEffect(() => {
+  const onTargetSelected = (target: EnemyDisplay) => {
+    setSelectedTarget(target.index);
+    setWaitingForTarget(false);
+  };
+
+  battleBridge.on('target-selected', onTargetSelected);
+
+  return () => {
+    battleBridge.off('target-selected', onTargetSelected);
+  };
+}, []);
+```
+
+**Rules**:
+- Dependency array is `[]` for event subscriptions — the handler should read latest state via store, not closures.
+- Every `on()` must have a matching `off()` in cleanup.
+- Never subscribe inside render or outside `useEffect`.
+
+### useGameStore selectors as the primary data hook
+
+The most common hook usage is `useGameStore((s) => s.field)` — one selector per field:
+
+```typescript
+const enemyHp = useGameStore((s) => s.enemyHp);
+const enemyMaxHp = useGameStore((s) => s.enemyMaxHp);
+const isPlayerTurn = useGameStore((s) => s.isPlayerTurn);
+```
+
+See [State Management](./state-management.md) for the full store pattern.
+
+### No useEffect for derived data
+
+If a value can be computed from existing state during render, do not sync it via `useEffect`:
+
+```typescript
+// CORRECT — compute during render
+const hpPercent = enemyHp / enemyMaxHp * 100;
+
+// WRONG — syncing via useEffect
+const [hpPercent, setHpPercent] = useState(0);
+useEffect(() => { setHpPercent(enemyHp / enemyMaxHp * 100); }, [enemyHp, enemyMaxHp]);
+```
 
 ---
 
-## Data Fetching
+## When to Extract a Custom Hook
 
-<!-- How data fetching is handled (React Query, SWR, etc.) -->
+The `hooks/` directory is empty by design — extract a custom hook only when:
 
-(To be filled by the team)
+1. The same `useEffect` + state logic is duplicated across 2+ components
+2. The hook encapsulates a non-trivial battleBridge protocol (e.g. `useTargetSelection()`)
+3. The hook name would improve component readability
 
----
-
-## Naming Conventions
-
-<!-- Hook naming rules (use*, etc.) -->
-
-(To be filled by the team)
+When extracting, place in `hooks/useXxx.ts` and export as named export.
 
 ---
 
-## Common Mistakes
+## Forbidden Patterns
 
-<!-- Hook-related mistakes your team has made -->
+- **No `useEffect` for store sync** — Zustand is already reactive. Do not mirror store state into local `useState` via `useEffect`.
+- **No async `useEffect` without cleanup** — if the effect starts an async operation, ensure it can be cancelled (flag check, AbortController).
+- **No hooks in conditionals or loops** — Rules of Hooks. Always call hooks at the top level of the component.
 
-(To be filled by the team)
+---
+
+## Reference Files
+
+- `packages/client/src/components/TurnBattleUI.tsx` — `useEffect` + `battleBridge` subscription pattern
+- `packages/client/src/components/AdventureMap.tsx` — `useState` for local UI state

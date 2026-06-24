@@ -1,38 +1,39 @@
-# Backend Development Guidelines
+# Shared Package Guidelines
 
-> Best practices for backend development in this project.
+> `@darkloop/shared` — pure TypeScript package with types, constants, and game logic. Consumed by both `@darkloop/client` and `@darkloop/server`. No runtime dependencies.
 
 ---
 
 ## Overview
 
-This directory contains guidelines for backend development. Fill in each file with your project's specific conventions.
+The shared package is the single source of truth for game types, static data, and pure calculation logic. It follows a strict three-layer separation: `types/` → `constants/` → `logic/`. No layer may import from a higher layer.
 
 ---
 
 ## Guidelines Index
 
-| Guide | Description | Status |
-|-------|-------------|--------|
-| [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
-| [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
-| [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
-| [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
+| Guide | Description |
+|-------|-------------|
+| [Directory Structure](./directory-structure.md) | Package layout, module organization, naming conventions |
+| [Type Safety](./type-safety.md) | Enum/interface/union patterns, deprecation aliases, import type rules |
+| [Quality Guidelines](./quality-guidelines.md) | Pure functions, frozen constants, backward-compat, forbidden patterns |
+| [Error Handling](./error-handling.md) | Throw-with-context, no try-catch, type guards |
 
 ---
 
-## How to Fill These Guidelines
+## Key Facts
 
-For each guideline file:
-
-1. Document your project's **actual conventions** (not ideals)
-2. Include **code examples** from your codebase
-3. List **forbidden patterns** and why
-4. Add **common mistakes** your team has made
-
-The goal is to help AI assistants and new team members understand how YOUR project works.
+- **No `frontend/` directory** — shared has no UI code; it is pure logic consumed by both client and server.
+- **No database or logging specs** — shared has no I/O. Database and logging concerns belong to `server`.
+- **Single type file** — all types live in `types/index.ts` (~600 lines), grouped by `// ─── 系统名 ───` comment separators.
+- **Comments in Chinese** — inline field comments and section headers use Chinese (中文).
+- **Named exports only** — no `export default` anywhere in the package.
 
 ---
 
-**Language**: All documentation should be written in **English**.
+## Verification
+
+```bash
+cd packages/shared && pnpm run typecheck   # tsc --noEmit
+cd packages/shared && pnpm run build       # tsc (emits JS + .d.ts)
+```

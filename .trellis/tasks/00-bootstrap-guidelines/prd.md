@@ -21,10 +21,10 @@ the rest conversationally.
 
 ## Status (update the checkboxes as you complete each item)
 
-- [ ] Fill guidelines for @darkloop/client
-- [ ] Fill guidelines for @darkloop/server
-- [ ] Fill guidelines for @darkloop/shared
-- [ ] Add code examples
+- [x] Fill guidelines for @darkloop/client
+- [x] Fill guidelines for @darkloop/server
+- [x] Fill guidelines for @darkloop/shared
+- [x] Add code examples
 
 ---
 
