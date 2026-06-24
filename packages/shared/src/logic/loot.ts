@@ -181,9 +181,10 @@ export function generateEquipment(
   itemLevel: number,
   dropRateBonus: number = 0,
   forcedSlot?: EquipSlot,
-  heroTags: AffixTag[] = ['universal', 'warrior']
+  heroTags: AffixTag[] = ['universal', 'warrior'],
+  forceRarity?: Rarity
 ): Equipment {
-  const rarity = rollRarity(dropRateBonus);
+  const rarity = forceRarity ?? rollRarity(dropRateBonus);
   const slot = forcedSlot ?? randomSlot();
   const template = pickTemplate(slot, itemLevel);
   const equipTags = deriveEquipTags(template.id, slot);
@@ -216,7 +217,7 @@ export function generateEquipment(
     baseStats: template.baseStats,
     affixes,
     requiredLevel: Math.max(1, itemLevel - 2),
-    icon: template.icon,
+    icon: template.iconClass,
   };
 }
 

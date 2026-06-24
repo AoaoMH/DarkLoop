@@ -8,11 +8,51 @@ import Phaser from 'phaser';
 import { useGameStore } from '../../stores/gameStore';
 import type { TurnState, TurnLogEntry } from '@shared/types';
 import { battleBridge } from '../battleBridge';
+import { SKILL_MAP } from '@shared/constants/skills';
 
 const HERO_X = 200;
 const ENEMY_X = 600;
 const GROUND_Y_OFFSET = 140;
 const BAR_WIDTH = 140;
+
+const BUFF_EMOJIS: Record<string, string> = {
+  atk_up: '⚔️',
+  def_up: '🛡️',
+  atk_down: '📉',
+  def_down: '💔',
+  stun: '💫',
+  bleed: '🩸',
+  burn: '🔥',
+  shield: '🛡️',
+  pierce: '🎯',
+  charging: '⚡',
+  paralyse: '⚡',
+  taunt: '📢',
+  indomitable: '💪',
+  counter: '🤺',
+  slow: '❄️',
+  freeze: '🥶',
+  poison: '🧪',
+  curse: '💀',
+  holy: '✨',
+  rage_gain: '🔥',
+};
+
+const DAMAGE_TYPE_COLORS: Record<string, number> = {
+  physical: 0xffffff,
+  magic: 0xdc88ff,
+  fire: 0xff5500,
+  burn: 0xff5500,
+  ice: 0x44ccff,
+  freeze: 0x44ccff,
+  lightning: 0xffdd00,
+  paralyse: 0xffdd00,
+  poison: 0x00cc33,
+  shadow: 0x7722cc,
+  curse: 0x7722cc,
+  holy: 0xffd700,
+  bleed: 0xdd0000,
+};
 
 export class BattleScene extends Phaser.Scene {
   private hero!: Phaser.GameObjects.Image;
@@ -21,8 +61,13 @@ export class BattleScene extends Phaser.Scene {
   private enemyHpBar!: Phaser.GameObjects.Rectangle;
   private heroRageBar!: Phaser.GameObjects.Rectangle;
   private enemyNameText!: Phaser.GameObjects.Text;
-  private stepText!: Phaser.GameObjects.Text;
   private phaseText!: Phaser.GameObjects.Text;
+
+  private heroHpText!: Phaser.GameObjects.Text;
+  private heroRageText!: Phaser.GameObjects.Text;
+  private enemyHpText!: Phaser.GameObjects.Text;
+  private heroBuffsText!: Phaser.GameObjects.Text;
+  private enemyBuffsText!: Phaser.GameObjects.Text;
 
   private lastLogLen = 0;
   private isAnimating = false;
@@ -36,10 +81,6 @@ export class BattleScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.cameras.main;
-    this.cameras.main.setBackgroundColor('#1a1a2e');
-
-    // 地面
-    this.add.rectangle(width / 2, height - 60, width, 120, 0x2d2d44).setOrigin(0.5);
 
     // 英雄（左侧）
     this.hero = this.add.image(HERO_X, height - GROUND_Y_OFFSET, 'hero_warrior');
@@ -59,31 +100,66 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 3,
     }).setOrigin(0.5);
 
-    // 英雄血条
-    this.add.rectangle(HERO_X, height - GROUND_Y_OFFSET - 55, BAR_WIDTH, 10, 0x333333).setOrigin(0.5);
-    this.heroHpBar = this.add.rectangle(HERO_X - BAR_WIDTH / 2, height - GROUND_Y_OFFSET - 55, BAR_WIDTH, 10, 0x00ff88).setOrigin(0, 0.5);
-
-    // 英雄怒气条
-    this.add.rectangle(HERO_X, height - GROUND_Y_OFFSET - 42, BAR_WIDTH, 6, 0x333333).setOrigin(0.5);
-    this.heroRageBar = this.add.rectangle(HERO_X - BAR_WIDTH / 2, height - GROUND_Y_OFFSET - 42, 0, 6, 0xffaa00).setOrigin(0, 0.5);
-    this.add.text(HERO_X, height - GROUND_Y_OFFSET - 30, '怒气', {
-      fontSize: '10px',
-      color: '#ffaa00',
+    // 英雄血条 (优化高度及边框样式)
+    const heroBarY = height - GROUND_Y_OFFSET + 60;
+    this.add.rectangle(HERO_X, heroBarY, BAR_WIDTH, 16, 0x111115).setOrigin(0.5).setStrokeStyle(2, 0x374151);
+    this.heroHpBar = this.add.rectangle(HERO_X - BAR_WIDTH / 2, heroBarY, BAR_WIDTH, 16, 0x10b981).setOrigin(0, 0.5);
+    this.heroHpText = this.add.text(HERO_X, heroBarY, '', {
+      fontSize: '11px',
+      color: '#ffffff',
       fontFamily: 'monospace',
-    }).setOrigin(0.5);
-
-    // 敌人血条
-    this.add.rectangle(ENEMY_X, height - GROUND_Y_OFFSET - 55, BAR_WIDTH, 10, 0x333333).setOrigin(0.5);
-    this.enemyHpBar = this.add.rectangle(ENEMY_X - BAR_WIDTH / 2, height - GROUND_Y_OFFSET - 55, BAR_WIDTH, 10, 0xff4444).setOrigin(0, 0.5);
-
-    // 顶部 Step
-    this.stepText = this.add.text(width / 2, 30, '', {
-      fontSize: '18px',
-      color: '#ffd700',
-      fontFamily: 'monospace',
+      fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(10);
+
+    // 英雄怒气条
+    this.add.rectangle(HERO_X, heroBarY + 18, BAR_WIDTH, 10, 0x111115).setOrigin(0.5).setStrokeStyle(2, 0x374151);
+    this.heroRageBar = this.add.rectangle(HERO_X - BAR_WIDTH / 2, heroBarY + 18, 0, 10, 0xfab005).setOrigin(0, 0.5);
+    this.heroRageText = this.add.text(HERO_X, heroBarY + 18, '', {
+      fontSize: '9px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(10);
+    
+    // 敌人血条
+    const enemyBarY = height - GROUND_Y_OFFSET + 60;
+    this.add.rectangle(ENEMY_X, enemyBarY, BAR_WIDTH, 16, 0x111115).setOrigin(0.5).setStrokeStyle(2, 0x374151);
+    this.enemyHpBar = this.add.rectangle(ENEMY_X - BAR_WIDTH / 2, enemyBarY, BAR_WIDTH, 16, 0xef4444).setOrigin(0, 0.5);
+    this.enemyHpText = this.add.text(ENEMY_X, enemyBarY, '', {
+      fontSize: '11px',
+      color: '#ffffff',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(10);
+
+    // Buffs 文字 (在血条上方显示)
+    const heroBuffsY = height - GROUND_Y_OFFSET + 32;
+    this.heroBuffsText = this.add.text(HERO_X, heroBuffsY, '', {
+      fontSize: '13px',
+      color: '#ffaa00',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(10);
+
+    const enemyBuffsY = height - GROUND_Y_OFFSET + 32;
+    this.enemyBuffsText = this.add.text(ENEMY_X, enemyBuffsY, '', {
+      fontSize: '13px',
+      color: '#ffaa00',
+      fontFamily: 'monospace',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(10);
+
+
 
     // 相位提示
     this.phaseText = this.add.text(width / 2, 55, '', {
@@ -167,7 +243,20 @@ export class BattleScene extends Phaser.Scene {
     this.heroHpBar.width = BAR_WIDTH * Math.max(0, ts.heroHp / ts.heroMaxHp);
     this.enemyHpBar.width = BAR_WIDTH * Math.max(0, ts.enemyHp / ts.enemyMaxHp);
     // 怒气条
-    this.heroRageBar.width = BAR_WIDTH * Math.min(1, ts.heroRage / 100);
+    this.heroRageBar.width = BAR_WIDTH * Math.min(1, ts.heroRage / ts.heroMaxRage);
+
+    // 数值文字显示
+    this.heroHpText.setText(`${Math.max(0, ts.heroHp)} / ${ts.heroMaxHp}`);
+    this.heroRageText.setText(`${ts.heroRage} / ${ts.heroMaxRage}`);
+    this.enemyHpText.setText(`${Math.max(0, ts.enemyHp)} / ${ts.enemyMaxHp}`);
+
+    // Buff / Debuff 文字刷新
+    const formatBuffs = (buffs: any[]) => {
+      return buffs.map(b => `${BUFF_EMOJIS[b.kind] || b.kind}${b.remainingTurns}`).join('  ');
+    };
+    this.heroBuffsText.setText(formatBuffs(ts.heroBuffs));
+    this.enemyBuffsText.setText(formatBuffs(ts.enemyBuffs));
+
     // 敌人
     if (this.enemy.text !== ts.enemyIcon) {
       this.enemy.setText(ts.enemyIcon);
@@ -177,8 +266,7 @@ export class BattleScene extends Phaser.Scene {
     if (this.enemy.alpha !== 1) this.enemy.setAlpha(1);
     if (this.hero.alpha !== 1 && ts.phase !== 'flee') this.hero.setAlpha(1);
     this.enemyNameText.setText(ts.enemyIsBoss ? `【Boss】${ts.enemyName}` : ts.enemyName);
-    // Step
-    this.stepText.setText(`第 ${ts.waveIndex + 1} / ${ts.totalWaves} 波`);
+
     // 相位
     const phaseLabel = ts.phase === 'player' ? '你的回合' : ts.phase === 'enemy' ? '敌方回合' : ts.phase === 'anim' ? '波次推进…' : '';
     this.phaseText.setText(phaseLabel);
@@ -211,6 +299,10 @@ export class BattleScene extends Phaser.Scene {
       await this.playDefeat(entry);
       return;
     }
+    if (entry.action === 'dot') {
+      await this.playDotDamage(entry);
+      return;
+    }
     if (entry.actor === 'hero') {
       switch (entry.action) {
         case 'attack': await this.playHeroAttack(entry); break;
@@ -226,28 +318,53 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
+  private async playDotDamage(entry: TurnLogEntry): Promise<void> {
+    const isHero = entry.actor === 'hero';
+    const targetObj = isHero ? this.hero : this.enemy;
+    const colorMap: Record<string, { tint: number; text: string; icon: string }> = {
+      '流血': { tint: 0xff3333, text: '#ff3333', icon: '🩸' },
+      '燃烧': { tint: 0xff6600, text: '#ff6600', icon: '🔥' },
+      '毒素': { tint: 0x33cc33, text: '#33cc33', icon: '🧪' },
+    };
+    const style = colorMap[entry.skillName || ''] || { tint: 0xff0000, text: '#ff0000', icon: '💥' };
+    
+    this.flashTint(targetObj, style.tint);
+    this.shakeUnit(targetObj);
+    
+    if (entry.damage) {
+      this.showDamageText(targetObj.x, targetObj.y - 40, `-${entry.damage}`, style.text, entry.damageType, false);
+    }
+    if (entry.skillName) {
+      this.showFloatingText(targetObj.x, targetObj.y - 80, entry.skillName, style.text);
+    }
+    await this.delay(300);
+  }
+
   private async playHeroAttack(entry: TurnLogEntry): Promise<void> {
     const originX = this.hero.x;
     await this.tweenPromise({
       targets: this.hero,
-      x: this.enemy.x - 80,
-      duration: 120,
+      x: originX + 30,
+      duration: 100,
     });
     // 命中
     this.flashTint(this.enemy, 0xffffff);
-    if (entry.damage) this.showDamageText(this.enemy.x, this.enemy.y - 40, `-${entry.damage}`, entry.crit ? '#ff3333' : '#ff4444', entry.crit);
+    this.shakeUnit(this.enemy);
+    if (entry.damage) this.showDamageText(this.enemy.x, this.enemy.y - 40, `-${entry.damage}`, entry.crit ? '#ff3333' : '#ff4444', entry.damageType, entry.crit);
     this.cameras.main.shake(80, 0.005);
     await this.tweenPromise({ targets: this.hero, x: originX, duration: 120 });
   }
 
   private async playHeroSkill(entry: TurnLogEntry): Promise<void> {
     // 技能粒子
-    this.showSkillEffect(this.enemy.x, this.enemy.y, 0xff6600);
+    const skill = entry.skillId ? SKILL_MAP[entry.skillId] : null;
+    this.showSkillEffect(this.enemy.x, this.enemy.y, skill?.effectName, entry.damageType);
     const originX = this.hero.x;
-    await this.tweenPromise({ targets: this.hero, x: this.enemy.x - 60, duration: 100 });
+    await this.tweenPromise({ targets: this.hero, x: originX + 30, duration: 100 });
     this.flashTint(this.enemy, 0xffaa00);
-    if (entry.damage) this.showDamageText(this.enemy.x, this.enemy.y - 40, `-${entry.damage}`, '#ff3333', true);
-    if (entry.skillName) this.showFloatingText(this.hero.x, this.hero.y - 60, entry.skillName, '#ffaa00');
+    this.shakeUnit(this.enemy);
+    if (entry.damage) this.showDamageText(this.enemy.x, this.enemy.y - 40, `-${entry.damage}`, '#ff9900', entry.damageType, true);
+    if (entry.skillName) this.showFloatingText(this.hero.x, this.hero.y - 80, entry.skillName, '#ffaa00');
     this.cameras.main.shake(120, 0.008);
     await this.tweenPromise({ targets: this.hero, x: originX, duration: 120 });
   }
@@ -265,20 +382,22 @@ export class BattleScene extends Phaser.Scene {
 
   private async playEnemyAttack(entry: TurnLogEntry): Promise<void> {
     const originX = this.enemy.x;
-    await this.tweenPromise({ targets: this.enemy, x: this.hero.x + 80, duration: 120 });
+    await this.tweenPromise({ targets: this.enemy, x: originX - 30, duration: 100 });
     this.flashTint(this.hero, 0xff0000);
-    if (entry.damage) this.showDamageText(this.hero.x, this.hero.y - 40, `-${entry.damage}`, '#ff5555');
+    this.shakeUnit(this.hero);
+    if (entry.damage) this.showDamageText(this.hero.x, this.hero.y - 40, `-${entry.damage}`, '#ff5555', entry.damageType, entry.crit);
     this.cameras.main.shake(80, 0.005);
     await this.tweenPromise({ targets: this.enemy, x: originX, duration: 120 });
   }
 
   private async playEnemySkill(entry: TurnLogEntry): Promise<void> {
-    this.showSkillEffect(this.hero.x, this.hero.y, 0xff0000);
+    this.showSkillEffect(this.hero.x, this.hero.y, 'scratch_01.png', entry.damageType);
     const originX = this.enemy.x;
-    await this.tweenPromise({ targets: this.enemy, x: this.hero.x + 60, duration: 100 });
+    await this.tweenPromise({ targets: this.enemy, x: originX - 30, duration: 100 });
     this.flashTint(this.hero, 0xff0000);
-    if (entry.damage) this.showDamageText(this.hero.x, this.hero.y - 40, `-${entry.damage}`, '#ff0000', true);
-    if (entry.skillName) this.showFloatingText(this.enemy.x, this.enemy.y - 60, entry.skillName, '#ff0000');
+    this.shakeUnit(this.hero);
+    if (entry.damage) this.showDamageText(this.hero.x, this.hero.y - 40, `-${entry.damage}`, '#ff3333', entry.damageType, true);
+    if (entry.skillName) this.showFloatingText(this.enemy.x, this.enemy.y - 80, entry.skillName, '#ff0000');
     this.cameras.main.shake(140, 0.01);
     await this.tweenPromise({ targets: this.enemy, x: originX, duration: 120 });
   }
@@ -343,55 +462,109 @@ export class BattleScene extends Phaser.Scene {
     this.time.delayedCall(100, () => obj.clearTint());
   }
 
-  private showDamageText(x: number, y: number, text: string, color: string, big = false): void {
-    const dmg = this.add.text(x, y, text, {
-      fontSize: big ? '24px' : '18px',
+  private showDamageText(x: number, y: number, text: string, color: string, damageType?: string, big = false): void {
+    const iconMap: Record<string, string> = {
+      physical: '⚔️',
+      magic: '🔮',
+      fire: '🔥',
+      ice: '❄️',
+      lightning: '⚡',
+      poison: '🧪',
+      shadow: '💀',
+      holy: '✨',
+      bleed: '🩸',
+      burn: '🔥',
+    };
+    const icon = damageType ? (iconMap[damageType] || '') : '';
+    const fullText = text + icon;
+
+    const dmg = this.add.text(x, y, fullText, {
+      fontSize: big ? '26px' : '18px',
       color,
       fontFamily: 'monospace',
       fontStyle: 'bold',
       stroke: '#000000',
       strokeThickness: 3,
-    }).setOrigin(0.5);
+    }).setOrigin(0.5).setDepth(25);
+
+    // 漂浮/抖动/弹跳 物理打击感动画
+    dmg.setScale(0.5);
     this.tweens.add({
       targets: dmg,
-      y: y - 50,
-      alpha: 0,
-      duration: 900,
-      onComplete: () => dmg.destroy(),
+      scale: big ? 1.4 : 1.1,
+      y: y - 60,
+      x: x + Phaser.Math.Between(-25, 25),
+      duration: 150,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: dmg,
+          y: y - 100,
+          alpha: 0,
+          duration: 700,
+          onComplete: () => dmg.destroy(),
+        });
+      }
     });
   }
 
   private showFloatingText(x: number, y: number, text: string, color: string): void {
     const label = this.add.text(x, y, text, {
-      fontSize: '14px',
+      fontSize: '22px',
       color,
       fontFamily: 'monospace',
+      fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 2,
-    }).setOrigin(0.5).setAlpha(0);
+      strokeThickness: 4,
+    }).setOrigin(0.5).setAlpha(0).setScale(0.5).setDepth(30);
     this.tweens.add({
       targets: label,
-      y: y - 30,
+      y: y - 60,
       alpha: 1,
-      duration: 200,
+      scale: 1.2,
+      duration: 300,
       yoyo: true,
+      hold: 500,
       onComplete: () => label.destroy(),
     });
   }
 
-  private showSkillEffect(x: number, y: number, color: number): void {
-    for (let i = 0; i < 6; i++) {
-      const particle = this.add.circle(x, y, 4, color).setAlpha(0.8);
-      const angle = (Math.PI * 2 * i) / 6;
+  private showSkillEffect(x: number, y: number, effectName: string | undefined, damageType?: string): void {
+    const tintColor = damageType ? (DAMAGE_TYPE_COLORS[damageType] ?? 0xffffff) : 0xffffff;
+    if (effectName && this.textures.exists(`particle_${effectName}`)) {
+      const particle = this.add.image(x, y, `particle_${effectName}`).setOrigin(0.5).setDepth(20);
+      particle.setScale(0.3).setAlpha(0);
+      particle.setTint(tintColor);
       this.tweens.add({
         targets: particle,
-        x: x + Math.cos(angle) * 50,
-        y: y + Math.sin(angle) * 50,
-        alpha: 0,
-        scale: 0,
-        duration: 400,
-        onComplete: () => particle.destroy(),
+        scale: 0.85,
+        alpha: 1,
+        duration: 200,
+        yoyo: true,
+        hold: 200,
+        onComplete: () => particle.destroy()
       });
+    } else {
+      for (let i = 0; i < 6; i++) {
+        const particle = this.add.circle(x, y, 2.5, tintColor).setAlpha(0.8).setDepth(20);
+        const angle = (Math.PI * 2 * i) / 6;
+        this.tweens.add({
+          targets: particle,
+          x: x + Math.cos(angle) * 25,
+          y: y + Math.sin(angle) * 25,
+          alpha: 0,
+          scale: 0,
+          duration: 400,
+          onComplete: () => particle.destroy(),
+        });
+      }
     }
+  }
+
+  private shakeUnit(target: Phaser.GameObjects.Image | Phaser.GameObjects.Text): void {
+    this.tweens.add({
+      targets: target,
+      x: { value: '+=10', duration: 40, yoyo: true, repeat: 3 },
+    });
   }
 }

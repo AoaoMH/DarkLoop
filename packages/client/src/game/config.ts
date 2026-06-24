@@ -11,7 +11,7 @@ export const phaserConfig: Phaser.Types.Core.GameConfig = {
   width: 800,
   height: 600,
   pixelArt: true,
-  backgroundColor: '#1a1a2e',
+  transparent: true,
   scene: [BootScene, BattleScene],
   physics: {
     default: 'arcade',

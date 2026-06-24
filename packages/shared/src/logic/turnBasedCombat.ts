@@ -341,7 +341,7 @@ function processStartOfTurn(state: TurnState, isHero: boolean): { skipped: boole
         state.enemyHp -= dmg;
       }
       const nameMap: Record<string, string> = { bleed: '流血', burn: '燃烧', poison: '毒素' };
-      logs.push({ turn: state.turnCount, actor: target, action: 'attack', damage: dmg, skillName: nameMap[b.kind] });
+      logs.push({ turn: state.turnCount, actor: target, action: 'dot', damage: dmg, skillName: nameMap[b.kind], damageType: b.kind });
     }
   }
 
@@ -510,13 +510,13 @@ function resolvePlayerAction(state: TurnState, hero: Hero, action: TurnAction): 
       const result = calcDamage(heroEff, enemyEff, instance, state.enemyTags);
       if (!result.isHit) {
         state.heroRage = Math.min(state.heroMaxRage, state.heroRage + GAME_BALANCE.RAGE_PER_ATTACK);
-        return { turn: state.turnCount, actor: 'hero', action: 'attack', damage: 0, skillName: '未命中', rageGain: GAME_BALANCE.RAGE_PER_ATTACK };
+        return { turn: state.turnCount, actor: 'hero', action: 'attack', damage: 0, damageType: 'physical', skillName: '未命中', rageGain: GAME_BALANCE.RAGE_PER_ATTACK };
       }
       state.enemyHp -= result.amount;
       state.heroRage = Math.min(state.heroMaxRage, state.heroRage + GAME_BALANCE.RAGE_PER_ATTACK);
       applyLeech(state, true, result.amount, true);
       applyReflect(state, true, result.amount);
-      return { turn: state.turnCount, actor: 'hero', action: 'attack', damage: result.amount, crit: result.isCrit, rageGain: GAME_BALANCE.RAGE_PER_ATTACK };
+      return { turn: state.turnCount, actor: 'hero', action: 'attack', damage: result.amount, damageType: 'physical', crit: result.isCrit, rageGain: GAME_BALANCE.RAGE_PER_ATTACK };
     }
     case 'skill': {
       const base = hero.skills.find(s => s.id === action.skillId);
@@ -552,7 +552,7 @@ function resolveSkill(state: TurnState, hero: Hero, heroEff: DerivedStats, enemy
       state.heroBuffs.push({ kind: 'charging', value: 1, remainingTurns: 2 });
       state.heroDefending = true;
       if (skill.selfEffects) applySelfEffects(state, skill.selfEffects);
-      return { turn: state.turnCount, actor: 'hero', action: 'skill', skillName: skill.name + '·蓄力', rageGain: -skill.rageCost };
+      return { turn: state.turnCount, actor: 'hero', action: 'skill', skillName: skill.name + '·蓄力', skillId: skill.id, rageGain: -skill.rageCost };
     }
     state.heroBuffs = state.heroBuffs.filter(b => b.kind !== 'charging');
   }
@@ -601,8 +601,9 @@ function resolveSkill(state: TurnState, hero: Hero, heroEff: DerivedStats, enemy
   // 施加对己效果
   applySelfEffects(state, skill.selfEffects || []);
 
+  const element = deriveElement(skill.effects);
   if (!isHit) {
-    return { turn: state.turnCount, actor: 'hero', action: 'skill', skillName: skill.name, damage: 0, rageGain: -skill.rageCost };
+    return { turn: state.turnCount, actor: 'hero', action: 'skill', skillName: skill.name, skillId: skill.id, damage: 0, damageType: element || 'physical', rageGain: -skill.rageCost };
   }
 
   return {
@@ -610,7 +611,9 @@ function resolveSkill(state: TurnState, hero: Hero, heroEff: DerivedStats, enemy
     actor: 'hero',
     action: 'skill',
     skillName: skill.name,
+    skillId: skill.id,
     damage: totalDmg,
+    damageType: element || 'physical',
     crit: isCrit,
     rageGain: -skill.rageCost,
   };
@@ -632,7 +635,7 @@ function resolveEnemyAction(state: TurnState): TurnLogEntry | null {
   const result = calcDamage(enemyEff, heroEff, instance);
 
   if (!result.isHit) {
-    return { turn: state.turnCount, actor: 'enemy', action: 'attack', damage: 0, skillName: '未命中' };
+    return { turn: state.turnCount, actor: 'enemy', action: 'attack', damage: 0, damageType: 'physical', skillName: '未命中' };
   }
 
   let finalDmg = result.amount;
@@ -677,6 +680,7 @@ function resolveEnemyAction(state: TurnState): TurnLogEntry | null {
     action: useSkill ? 'skill' : 'attack',
     skillName: useSkill ? 'Boss技能' : undefined,
     damage: finalDmg,
+    damageType: useSkill ? 'magic' : 'physical',
     rageGain: GAME_BALANCE.RAGE_PER_HIT,
   };
 }
@@ -706,14 +710,9 @@ export function calcBattleReward(
   const heroTags: AffixTag[] = ['universal', 'warrior'];
 
   const equipment: BattleRewardResult['equipment'] = [];
-  for (const wave of level.waves) {
-    for (const monster of wave.monsters) {
-      for (const lootEntry of monster.loot) {
-        if (Math.random() < lootEntry.dropRate) {
-          equipment.push(generateEquipment(hero.level, dropRateBonus, undefined, heroTags));
-        }
-      }
-    }
+  const count = Math.floor(Math.random() * 3) + 1; // 1~3 items
+  for (let i = 0; i < count; i++) {
+    equipment.push(generateEquipment(hero.level, dropRateBonus, undefined, heroTags));
   }
 
   return {
@@ -777,6 +776,72 @@ export function learnTalent(hero: Hero, nodeId: string): Hero {
     skills: newSkills,
     talentPoints: hero.talentPoints - 1,
     spentPoints: hero.spentPoints + 1,
+    learnedTalents: newLearned,
+  };
+}
+
+export function canRefundTalent(learned: LearnedTalents, nodeId: string): boolean {
+  const currentRank = learned[nodeId] || 0;
+  if (currentRank <= 0) return false;
+
+  const newLearned = { ...learned };
+  if (currentRank === 1) {
+    delete newLearned[nodeId];
+  } else {
+    newLearned[nodeId] = currentRank - 1;
+  }
+
+  for (const n of WARRIOR_TALENT_TREE.nodes) {
+    if ((newLearned[n.id] || 0) > 0) {
+      for (const req of n.requires || []) {
+        if (!(newLearned[req] > 0)) {
+          return false;
+        }
+      }
+    }
+  }
+
+  for (const n of WARRIOR_TALENT_TREE.nodes) {
+    if ((newLearned[n.id] || 0) > 0 && n.tier > 1) {
+      const tierDef = WARRIOR_TALENT_TREE.tiers.find(t => t.tier === n.tier);
+      if (tierDef) {
+        const spentBelow = WARRIOR_TALENT_TREE.nodes
+          .filter(other => other.tier < n.tier)
+          .reduce((sum, other) => sum + (newLearned[other.id] || 0), 0);
+        if (spentBelow < tierDef.unlockAt) {
+          return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+export function refundTalent(hero: Hero, nodeId: string): Hero {
+  if (!canRefundTalent(hero.learnedTalents, nodeId)) return hero;
+
+  const node = TALENT_NODE_MAP[nodeId];
+  if (!node) return hero;
+
+  const currentRank = hero.learnedTalents[nodeId] || 0;
+  const newLearned = { ...hero.learnedTalents };
+  if (currentRank === 1) {
+    delete newLearned[nodeId];
+  } else {
+    newLearned[nodeId] = currentRank - 1;
+  }
+
+  let newSkills = hero.skills;
+  if (node.kind === 'skill' && node.skillId && currentRank === 1) {
+    newSkills = hero.skills.filter(s => s.id !== node.skillId);
+  }
+
+  return {
+    ...hero,
+    skills: newSkills,
+    talentPoints: hero.talentPoints + 1,
+    spentPoints: hero.spentPoints - 1,
     learnedTalents: newLearned,
   };
 }

@@ -5,13 +5,15 @@
 
 import { create } from 'zustand';
 import type { Equipment, Hero, PlayerSave, OfflineReward, Building, Resources, LevelProgress, TurnState, LevelDef } from '@shared/types';
-import { HeroClass } from '@shared/types';
+import { HeroClass, Rarity, EquipSlot } from '@shared/types';
+import { generateEquipment } from '@shared/logic/loot';
 import { DEFAULT_BUILDINGS, createDefaultHero } from '@shared/constants/defaults';
 import { DEFAULT_RESOURCES } from '@shared/constants/resources';
 import { LEVELS } from '@shared/constants/levels';
-import { resetTalents, learnTalent, calcHeroMaxHp, initTurnState, runTurn, runEnemyTurn, calcBattleReward } from '@shared/logic/turnBasedCombat';
+import { resetTalents, learnTalent, refundTalent, calcHeroMaxHp, initTurnState, runTurn, runEnemyTurn, calcBattleReward } from '@shared/logic/turnBasedCombat';
 import type { TurnAction } from '@shared/types';
 import { GAME_BALANCE } from '@shared/constants/balance';
+import { WARRIOR_SKILLS, WARRIOR_STARTER_SKILL_IDS } from '@shared/constants/skills';
 
 interface GameState {
   hero: Hero | null;
@@ -36,6 +38,7 @@ interface GameState {
   addToInventory: (item: Equipment) => void;
   equipItem: (item: Equipment, slotIndex: number) => void;
   learnTalentNode: (nodeId: string) => void;
+  refundTalentNode: (nodeId: string) => void;
   resetAllTalents: () => void;
 
   startBattle: (levelId: string) => void;
@@ -74,7 +77,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     const hero = createDefaultHero('冒险者');
     const initialProgress: Record<string, LevelProgress> = {};
     for (const lv of LEVELS) initialProgress[lv.id] = { cleared: false, stars: 0, firstClearClaimed: false };
-    set({ hero, heroLevel: 1, resources: { ...DEFAULT_RESOURCES, gold: 100 }, levelProgress: initialProgress, stage: 1 });
+    
+    // 生成一套战士的各稀有度装备（白、绿、蓝、紫、橙、红、彩）用于测试
+    const testEquipments = [
+      generateEquipment(1, 0, EquipSlot.Weapon, ['universal', 'warrior'], Rarity.Common),
+      generateEquipment(1, 0, EquipSlot.Helmet, ['universal', 'warrior'], Rarity.Fine),
+      generateEquipment(1, 0, EquipSlot.Armor, ['universal', 'warrior'], Rarity.Rare),
+      generateEquipment(1, 0, EquipSlot.Boots, ['universal', 'warrior'], Rarity.Epic),
+      generateEquipment(1, 0, EquipSlot.Ring, ['universal', 'warrior'], Rarity.Legendary),
+      generateEquipment(1, 0, EquipSlot.Amulet, ['universal', 'warrior'], Rarity.Mythic),
+      generateEquipment(1, 0, EquipSlot.Weapon, ['universal', 'warrior'], Rarity.Apex),
+    ];
+
+    set({ 
+      hero, 
+      heroLevel: 1, 
+      resources: { ...DEFAULT_RESOURCES, gold: 100 }, 
+      levelProgress: initialProgress, 
+      stage: 1,
+      inventory: testEquipments 
+    });
   },
 
   addResources: (patch) =>
@@ -120,6 +142,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((s) => {
       if (!s.hero) return s;
       return { hero: learnTalent(s.hero, nodeId) };
+    }),
+
+  refundTalentNode: (nodeId) =>
+    set((s) => {
+      if (!s.hero) return s;
+      return { hero: refundTalent(s.hero, nodeId) };
     }),
 
   resetAllTalents: () =>
@@ -169,7 +197,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       const level = LEVELS.find(l => l.id === s.currentLevelId);
       if (!level) return s;
       const nextWaveIdx = s.turnState.waveIndex;
+      
+      const currentHp = s.turnState.heroHp;
+      const currentRage = s.turnState.heroRage;
+
       const ts = initTurnState(s.hero, level, nextWaveIdx);
+      ts.heroHp = Math.min(ts.heroMaxHp, currentHp);
+      ts.heroRage = Math.min(ts.heroMaxRage, currentRage);
+
       const prevLog = s.turnState.log;
       return { turnState: { ...ts, log: prevLog } };
     }),
@@ -245,14 +280,22 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (!raw) return false;
       const save: PlayerSave = JSON.parse(raw);
       if (save.version !== SAVE_VERSION) return false;
+
+      const loadedHero = save.hero;
+      if (loadedHero) {
+        if (!loadedHero.skills || loadedHero.skills.length === 0) {
+          loadedHero.skills = WARRIOR_SKILLS.filter(s => WARRIOR_STARTER_SKILL_IDS.includes(s.id));
+        }
+      }
+
       set({
-        hero: save.hero,
+        hero: loadedHero,
         resources: save.resources,
         buildings: save.buildings,
         levelProgress: save.levelProgress,
         stage: save.stage,
         highestStage: save.highestStage,
-        heroLevel: save.hero.level,
+        heroLevel: loadedHero ? loadedHero.level : 1,
       });
       return true;
     } catch {

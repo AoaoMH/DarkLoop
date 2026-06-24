@@ -80,7 +80,8 @@ const TalentNodeView: React.FC<{
   tierColor: string;
   tierGlow: string;
   onClick: () => void;
-}> = ({ node, rank, learned, available, excluded, tierColor, tierGlow, onClick }) => {
+  onContextMenu?: (e: React.MouseEvent) => void;
+}> = ({ node, rank, learned, available, excluded, tierColor, tierGlow, onClick, onContextMenu }) => {
   const cls = [
     'talent-node-v',
     learned ? 'is-learned' : '',
@@ -104,6 +105,7 @@ const TalentNodeView: React.FC<{
       className={cls}
       style={style}
       onClick={onClick}
+      onContextMenu={onContextMenu}
       disabled={node.kind === 'label' || (!learned && !available)}
       title={excluded ? '互斥：已选择同组其他强化' : node.desc}
     >
@@ -122,7 +124,8 @@ const TierSection: React.FC<{
   learned: LearnedTalents;
   talentPoints: number;
   onLearn: (id: string) => void;
-}> = ({ tier, learned, talentPoints, onLearn }) => {
+  onRefund: (id: string) => void;
+}> = ({ tier, learned, talentPoints, onLearn, onRefund }) => {
   const t = WARRIOR_TALENT_TREE.tiers.find(t => t.tier === tier);
   if (!t) return null;
   const theme = TIER_THEME[tier - 1];
@@ -154,6 +157,10 @@ const TierSection: React.FC<{
                 tierColor={theme.color}
                 tierGlow={theme.glow}
                 onClick={() => onLearn(skill.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onRefund(skill.id);
+                }}
               />
               <div className="talent-col-v__link" style={{ background: theme.color }} />
               {upgs.map(upg => {
@@ -170,6 +177,10 @@ const TierSection: React.FC<{
                     tierColor={theme.color}
                     tierGlow={theme.glow}
                     onClick={() => onLearn(upg.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      onRefund(upg.id);
+                    }}
                   />
                 );
               })}
@@ -200,6 +211,7 @@ const ProgressBar: React.FC<{
 export const TalentPanel: React.FC = () => {
   const hero = useGameStore(s => s.hero);
   const learnTalentNode = useGameStore(s => s.learnTalentNode);
+  const refundTalentNode = useGameStore(s => s.refundTalentNode);
   const resetAllTalents = useGameStore(s => s.resetAllTalents);
 
   if (!hero) return <div className="talent-tree-v">加载中...</div>;
@@ -214,35 +226,36 @@ export const TalentPanel: React.FC = () => {
         <h2>天赋</h2>
         <div className="talent-tree-v__points">
           可用点数: <strong>{hero.talentPoints}</strong>
-          <span className="talent-tree-v__spent">（已投 {spent}）</span>
         </div>
         <button type="button" className="talent-tree-v__reset" onClick={resetAllTalents}>
-          重置天赋
+          全部重置
         </button>
       </div>
 
-      {/* 顶部标签节点 */}
-      <div className="talent-tree-v__root">
-        <TalentNodeView
-          node={labelNode}
-          rank={0}
-          learned={false}
-          available={false}
-          tierColor={TIER_THEME[0].color}
-          tierGlow={TIER_THEME[0].glow}
-          onClick={() => {}}
-        />
+      <div className="talent-tree-v__content">
+        {/* 顶部标签节点 */}
+        <div className="talent-tree-v__root">
+          <TalentNodeView
+            node={labelNode}
+            rank={0}
+            learned={true}
+            available={false}
+            tierColor={TIER_THEME[0].color}
+            tierGlow={TIER_THEME[0].glow}
+            onClick={() => {}}
+          />
+        </div>
+
+        <TierSection tier={1} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} onRefund={refundTalentNode} />
+
+        <ProgressBar unlockAt={5} current={spent} />
+
+        <TierSection tier={2} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} onRefund={refundTalentNode} />
+
+        <ProgressBar unlockAt={10} current={spent} />
+
+        <TierSection tier={3} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} onRefund={refundTalentNode} />
       </div>
-
-      <TierSection tier={1} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} />
-
-      <ProgressBar unlockAt={5} current={spent} />
-
-      <TierSection tier={2} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} />
-
-      <ProgressBar unlockAt={10} current={spent} />
-
-      <TierSection tier={3} learned={learned} talentPoints={hero.talentPoints} onLearn={learnTalentNode} />
     </div>
   );
 };

@@ -21,7 +21,7 @@ export function ResourceBar() {
           const value = resources[kind];
           return (
             <div key={kind} className="resource-item" title={meta.desc}>
-              <span className="resource-item__icon" style={{ color: meta.color }}>{meta.icon}</span>
+              <span className={`resource-item__icon ${meta.iconClass}`} title={meta.name}></span>
               <span className="resource-item__value" style={{ color: meta.color }}>
                 {kind === ResourceKind.Exp ? `${value} (Lv.${heroLevel})` : value}
               </span>

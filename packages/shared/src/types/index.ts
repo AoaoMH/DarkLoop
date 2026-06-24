@@ -200,6 +200,7 @@ export interface Skill {
   effects?: SkillEffect[];
   selfEffects?: SkillEffect[];
   chargeSkill?: boolean;
+  effectName?: string;
 }
 
 // ─── 天赋盘系统 ─────────────────────────────────────────
@@ -350,7 +351,7 @@ export interface Reward {
 
 export type BattlePhase = 'player' | 'enemy' | 'anim' | 'win' | 'lose' | 'flee';
 
-export type TurnActionKind = 'attack' | 'skill' | 'defend' | 'flee';
+export type TurnActionKind = 'attack' | 'skill' | 'defend' | 'flee' | 'dot';
 
 export interface TurnAction {
   kind: TurnActionKind;
@@ -404,7 +405,9 @@ export interface TurnLogEntry {
   actor: 'hero' | 'enemy';
   action: TurnActionKind;
   skillName?: string;
+  skillId?: string;
   damage?: number;
+  damageType?: string;
   rageGain?: number;
   crit?: boolean;
   defeated?: boolean;

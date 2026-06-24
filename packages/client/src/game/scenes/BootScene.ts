@@ -30,6 +30,16 @@ export class BootScene extends Phaser.Scene {
     this.load.image('monster_demon', 'assets/sprites/monster_demon.png');
     this.load.image('item_potion', 'assets/sprites/item_potion.png');
     this.load.image('tilemap', 'assets/sprites/tilemap.png');
+
+    // 加载技能粒子特效
+    const particles = [
+      'slash_01.png', 'circle_01.png', 'spark_01.png', 'slash_03.png',
+      'twirl_01.png', 'fire_01.png', 'light_01.png', 'magic_04.png',
+      'magic_02.png', 'flare_01.png', 'scratch_01.png'
+    ];
+    particles.forEach(p => {
+      this.load.image(`particle_${p}`, `assets/particles/${p}`);
+    });
   }
 
   create(): void {

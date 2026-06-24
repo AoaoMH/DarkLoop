@@ -6,7 +6,8 @@ import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { RARITY_COLORS } from '@shared/constants/equipment';
 import { calcHeroDerived } from '@shared/logic/combat';
-import type { Rarity, DerivedStats, PrimaryStats } from '@shared/types';
+import type { Rarity, DerivedStats, PrimaryStats, Equipment } from '@shared/types';
+import { EquipTooltip } from './EquipTooltip';
 
 const EQUIPMENT_SLOTS = ['武器', '头盔', '胸甲', '护腿', '靴子', '饰品'];
 
@@ -82,6 +83,56 @@ function fmtVal(v: number, fmt: 'int' | 'pct' | 'fp2'): string {
   return v.toFixed(2);
 }
 
+interface EquipmentSlotCellProps {
+  slotName: string;
+  equipped?: Equipment;
+}
+
+function EquipmentSlotCell({ slotName, equipped }: EquipmentSlotCellProps) {
+  const [hovered, setHovered] = useState(false);
+  const [position, setPosition] = useState<{ x: number; y: number; showBelow: boolean } | null>(null);
+
+  const handleMouseEnter = (e: React.MouseEvent) => {
+    if (!equipped) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const showBelow = rect.top < 280;
+    
+    setPosition({
+      x: rect.left + rect.width / 2,
+      y: showBelow ? rect.bottom + 8 : rect.top - 8,
+      showBelow
+    });
+    setHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(false);
+  };
+
+  return (
+    <div
+      className="equipment-slot"
+      style={
+        equipped
+          ? {
+              boxShadow: `2px 2px 0 rgba(0,0,0,0.4), 0 0 8px ${RARITY_COLORS[equipped.rarity as Rarity] || '#333'}`,
+            }
+          : undefined
+      }
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <div className="equipment-slot__label">{slotName}</div>
+      <div className={`equipment-slot__icon ${equipped ? equipped.icon : ''}`}>
+        {!equipped && '?'}
+      </div>
+      {equipped && (
+        <EquipTooltip item={equipped} visible={hovered} position={position || undefined} />
+      )}
+    </div>
+  );
+}
+
 export function CharacterPanel() {
   const hero = useGameStore((s) => s.hero);
   const [showDetail, setShowDetail] = useState(false);
@@ -115,23 +166,11 @@ export function CharacterPanel() {
           {EQUIPMENT_SLOTS.map((slotName, index) => {
             const equipped = hero.equipment[index];
             return (
-              <div
+              <EquipmentSlotCell
                 key={slotName}
-                className="equipment-slot"
-                style={
-                  equipped
-                    ? {
-                        boxShadow: `2px 2px 0 rgba(0,0,0,0.4), 0 0 8px ${RARITY_COLORS[equipped.rarity as Rarity] || '#333'}`,
-                      }
-                    : undefined
-                }
-                title={equipped ? `${equipped.name}\n${slotName}` : slotName}
-              >
-                <div className="equipment-slot__label">{slotName}</div>
-                <div className="equipment-slot__icon">
-                  {equipped ? equipped.icon || '?' : '-'}
-                </div>
-              </div>
+                slotName={slotName}
+                equipped={equipped}
+              />
             );
           })}
         </div>

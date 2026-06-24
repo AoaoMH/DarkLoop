@@ -53,29 +53,29 @@ interface EquipTemplate {
   slot: EquipSlot;
   minLevel: number;
   baseStats: Partial<HeroStats>;
-  icon: string;
+  iconClass: string;
 }
 
 export const EQUIP_TEMPLATES: EquipTemplate[] = [
   // 武器
-  { id: 'sword_basic',    name: '铁剑',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { strength: 5 },  icon: '🗡️' },
-  { id: 'sword_steel',    name: '钢剑',   slot: EquipSlot.Weapon, minLevel: 5,  baseStats: { strength: 15 }, icon: '⚔️' },
-  { id: 'staff_basic',    name: '法杖',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { intelligence: 5 }, icon: '🪄' },
-  { id: 'bow_basic',      name: '短弓',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { agility: 5 },  icon: '🏹' },
+  { id: 'sword_basic',    name: '铁剑',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { strength: 5 },  iconClass: 'sprite-icon icon-sword-basic' },
+  { id: 'sword_steel',    name: '钢剑',   slot: EquipSlot.Weapon, minLevel: 5,  baseStats: { strength: 15 }, iconClass: 'sprite-icon icon-sword-steel' },
+  { id: 'staff_basic',    name: '法杖',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { intelligence: 5 }, iconClass: 'sprite-icon icon-staff-basic' },
+  { id: 'bow_basic',      name: '短弓',   slot: EquipSlot.Weapon, minLevel: 1,  baseStats: { agility: 5 },  iconClass: 'sprite-icon icon-bow-basic' },
   // 防具
-  { id: 'armor_cloth',    name: '布甲',   slot: EquipSlot.Armor,  minLevel: 1,  baseStats: { vitality: 3 },  icon: '👕' },
-  { id: 'armor_leather',  name: '皮甲',   slot: EquipSlot.Armor,  minLevel: 3,  baseStats: { vitality: 8 },  icon: '🧥' },
-  { id: 'armor_plate',    name: '板甲',   slot: EquipSlot.Armor,  minLevel: 8,  baseStats: { vitality: 20 }, icon: '🛡️' },
+  { id: 'armor_cloth',    name: '布甲',   slot: EquipSlot.Armor,  minLevel: 1,  baseStats: { vitality: 3 },  iconClass: 'sprite-icon icon-armor-cloth' },
+  { id: 'armor_leather',  name: '皮甲',   slot: EquipSlot.Armor,  minLevel: 3,  baseStats: { vitality: 8 },  iconClass: 'sprite-icon icon-armor-leather' },
+  { id: 'armor_plate',    name: '板甲',   slot: EquipSlot.Armor,  minLevel: 8,  baseStats: { vitality: 20 }, iconClass: 'sprite-icon icon-armor-plate' },
   // 头盔
-  { id: 'helmet_cap',     name: '布帽',   slot: EquipSlot.Helmet, minLevel: 1,  baseStats: { vitality: 2 },  icon: '🎩' },
-  { id: 'helmet_iron',    name: '铁盔',   slot: EquipSlot.Helmet, minLevel: 5,  baseStats: { vitality: 10 }, icon: '⛑️' },
+  { id: 'helmet_cap',     name: '布帽',   slot: EquipSlot.Helmet, minLevel: 1,  baseStats: { vitality: 2 },  iconClass: 'sprite-icon icon-helmet-cap' },
+  { id: 'helmet_iron',    name: '铁盔',   slot: EquipSlot.Helmet, minLevel: 5,  baseStats: { vitality: 10 }, iconClass: 'sprite-icon icon-helmet-iron' },
   // 鞋子
-  { id: 'boots_leather',  name: '皮靴',   slot: EquipSlot.Boots,  minLevel: 1,  baseStats: { agility: 3 },   icon: '👢' },
-  { id: 'boots_plate',    name: '铁靴',   slot: EquipSlot.Boots,  minLevel: 5,  baseStats: { agility: 8, vitality: 5 }, icon: '🥾' },
+  { id: 'boots_leather',  name: '皮靴',   slot: EquipSlot.Boots,  minLevel: 1,  baseStats: { agility: 3 },   iconClass: 'sprite-icon icon-boots-leather' },
+  { id: 'boots_plate',    name: '铁靴',   slot: EquipSlot.Boots,  minLevel: 5,  baseStats: { agility: 8, vitality: 5 }, iconClass: 'sprite-icon icon-boots-plate' },
   // 戒指
-  { id: 'ring_copper',    name: '铜戒',   slot: EquipSlot.Ring,   minLevel: 1,  baseStats: { luck: 3 }, icon: '💍' },
-  { id: 'ring_gold',      name: '金戒',   slot: EquipSlot.Ring,   minLevel: 8,  baseStats: { luck: 8 }, icon: '💍' },
+  { id: 'ring_copper',    name: '铜戒',   slot: EquipSlot.Ring,   minLevel: 1,  baseStats: { luck: 3 }, iconClass: 'sprite-icon icon-ring-copper' },
+  { id: 'ring_gold',      name: '金戒',   slot: EquipSlot.Ring,   minLevel: 8,  baseStats: { luck: 8 }, iconClass: 'sprite-icon icon-ring-gold' },
   // 项链
-  { id: 'amulet_bone',    name: '骨链',   slot: EquipSlot.Amulet, minLevel: 1,  baseStats: { intelligence: 3 }, icon: '📿' },
-  { id: 'amulet_gem',     name: '宝石链', slot: EquipSlot.Amulet, minLevel: 8,  baseStats: { intelligence: 12, spirit: 5 }, icon: '📿' },
+  { id: 'amulet_bone',    name: '骨链',   slot: EquipSlot.Amulet, minLevel: 1,  baseStats: { intelligence: 3 }, iconClass: 'sprite-icon icon-amulet-bone' },
+  { id: 'amulet_gem',     name: '宝石链', slot: EquipSlot.Amulet, minLevel: 8,  baseStats: { intelligence: 12, spirit: 5 }, iconClass: 'sprite-icon icon-amulet-gem' },
 ];

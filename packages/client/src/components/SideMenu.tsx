@@ -16,7 +16,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { key: 'adventure', label: '冒险', icon: '⚔️' },
-  { key: 'talent', label: '天赋盘', icon: '🌟' },
+  { key: 'talent', label: '天赋', icon: '🌟' },
   { key: 'inventory', label: '背包', icon: '🎒' },
   // 后续迭代解锁
   { key: 'inventory', label: '铁匠铺', icon: '🔨', locked: true, lockHint: '后续版本解锁' },
@@ -50,7 +50,7 @@ export function SideMenu({ activeMenu, onMenuChange }: SideMenuProps) {
                 <span className="side-menu__row">
                   <span className="side-menu__icon">{item.icon}</span>
                   <span className="side-menu__label">{item.label}</span>
-                  {locked && <span className="side-menu__lock">🔒</span>}
+                  <span className="side-menu__lock" style={{ visibility: locked ? 'visible' : 'hidden' }}>🔒</span>
                 </span>
               </button>
             </li>
