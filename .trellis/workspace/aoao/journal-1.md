@@ -71,3 +71,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Bootstrap project spec guidelines
+
+**Date**: 2026-06-24
+**Task**: Bootstrap project spec guidelines
+**Branch**: `master`
+
+### Summary
+
+Analyzed codebase and filled .trellis/spec/ with real coding conventions for all 3 packages (shared/backend, client/frontend, server/backend). Removed inapplicable specs (shared/frontend, server/frontend, shared/backend database+logging). All specs backed by real file references and code examples.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f189fb1` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
