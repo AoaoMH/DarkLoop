@@ -1,0 +1,31 @@
+{
+  "id": "adventure-v1",
+  "name": "adventure-v1",
+  "title": "冒险玩法 v1 可行性流程",
+  "description": "",
+  "status": "done",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "aoao",
+  "assignee": "aoao",
+  "createdAt": "2026-06-24",
+  "completedAt": "2026-06-24",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-24-data-systems-base",
+    "06-24-ui-layout-nav",
+    "06-24-turn-based-combat",
+    "06-24-stats-system-rework"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
