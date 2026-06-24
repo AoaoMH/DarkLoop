@@ -7,3 +7,5 @@ export * from './constants/resources';
 export * from './constants/talents';
 export * from './constants/skills';
 export * from './constants/levels';
+export * from './constants/monsters';
+export * from './constants/regions';

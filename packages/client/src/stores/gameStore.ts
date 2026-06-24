@@ -11,7 +11,7 @@ import { DEFAULT_BUILDINGS, createDefaultHero } from '@shared/constants/defaults
 import { DEFAULT_RESOURCES } from '@shared/constants/resources';
 import { LEVELS } from '@shared/constants/levels';
 import { SLOT_ORDER, BASE_TYPES, calcSellPrice } from '@shared/constants/equipment';
-import { resetTalents, learnTalent, refundTalent, calcHeroMaxHp, initTurnState, runTurn, runEnemyTurn, calcBattleReward } from '@shared/logic/turnBasedCombat';
+import { resetTalents, learnTalent, refundTalent, calcHeroMaxHp, initTurnState, runTurn, runEnemyTurn, calcBattleReward, advanceToNextWave } from '@shared/logic/turnBasedCombat';
 import type { TurnAction } from '@shared/types';
 import { GAME_BALANCE } from '@shared/constants/balance';
 import { WARRIOR_SKILLS, WARRIOR_STARTER_SKILL_IDS } from '@shared/constants/skills';
@@ -22,8 +22,6 @@ interface GameState {
   buildings: Building[];
   inventory: Equipment[];
   levelProgress: Record<string, LevelProgress>;
-  stage: number;
-  highestStage: number;
 
   isBattling: boolean;
   currentLevelId: string | null;
@@ -56,7 +54,7 @@ interface GameState {
 }
 
 const STORAGE_KEY = 'darkloop_save';
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 
 export const useGameStore = create<GameState>((set, get) => ({
   hero: null,
@@ -64,8 +62,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   buildings: DEFAULT_BUILDINGS,
   inventory: [],
   levelProgress: {},
-  stage: 1,
-  highestStage: 1,
 
   isBattling: false,
   currentLevelId: null,
@@ -97,7 +93,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       heroLevel: 1, 
       resources: { ...DEFAULT_RESOURCES, gold: 100 }, 
       levelProgress: initialProgress, 
-      stage: 1,
       inventory: testEquipments 
     });
   },
@@ -257,17 +252,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (!s.turnState || !s.hero || !s.currentLevelId) return s;
       const level = LEVELS.find(l => l.id === s.currentLevelId);
       if (!level) return s;
-      const nextWaveIdx = s.turnState.waveIndex;
-      
-      const currentHp = s.turnState.heroHp;
-      const currentRage = s.turnState.heroRage;
-
-      const ts = initTurnState(s.hero, level, nextWaveIdx);
-      ts.heroHp = Math.min(ts.heroMaxHp, currentHp);
-      ts.heroRage = Math.min(ts.heroMaxRage, currentRage);
-
-      const prevLog = s.turnState.log;
-      return { turnState: { ...ts, log: prevLog } };
+      const newTs = advanceToNextWave(s.turnState, s.hero, level);
+      return { turnState: newTs };
     }),
 
   endBattle: () => set({ isBattling: false, currentLevelId: null, turnState: null, battleReward: null }),
@@ -318,7 +304,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   saveGame: () => {
-    const { hero, resources, buildings, levelProgress, stage, highestStage } = get();
+    const { hero, resources, buildings, levelProgress } = get();
     if (!hero) return;
     const save: PlayerSave = {
       version: SAVE_VERSION,
@@ -326,8 +312,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       buildings,
       resources,
       levelProgress,
-      stage,
-      highestStage,
       lastOnlineAt: Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -354,8 +338,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         resources: save.resources,
         buildings: save.buildings,
         levelProgress: save.levelProgress,
-        stage: save.stage,
-        highestStage: save.highestStage,
         heroLevel: loadedHero ? loadedHero.level : 1,
       });
       return true;

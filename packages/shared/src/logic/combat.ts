@@ -7,6 +7,7 @@ import type {
   Hero, PrimaryStats, DerivedStats, Equipment, Monster, CombatResult, CombatLogEntry, Reward,
   DamageInstance, DamageResult, RolledMod,
 } from '../types';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { GAME_BALANCE } from '../constants/balance';
 import { BASE_TYPES } from '../constants/equipment';
 
@@ -73,8 +74,14 @@ export function calcCombinedPrimary(hero: Hero): PrimaryStats {
 /**
  * 计算二级属性（基础属性 + 装备 + 词缀 + 等级加成）
  * 英雄和怪物共用此函数（怪物 equipment 传空数组）
+ * @param applyLevelBonus 英雄=true（5%/级加成），怪物=false（成长率已覆盖缩放）
  */
-export function calcDerivedStats(base: PrimaryStats, equipment: Equipment[], level: number): DerivedStats {
+export function calcDerivedStats(
+  base: PrimaryStats,
+  equipment: Equipment[],
+  level: number,
+  applyLevelBonus = true,
+): DerivedStats {
   const S = GAME_BALANCE.STAT_SCALARS;
   const D = GAME_BALANCE.DERIVED_BASE;
   const combined = { ...base };
@@ -131,14 +138,16 @@ export function calcDerivedStats(base: PrimaryStats, equipment: Equipment[], lev
     }
   }
 
-  // 等级加成（每级 +5% 攻防血）
-  const levelBonus = 1 + (level - 1) * 0.05;
-  derived.maxHp = Math.floor(derived.maxHp * levelBonus);
-  derived.physicalAttack = Math.floor(derived.physicalAttack * levelBonus);
-  derived.rangedAttack = Math.floor(derived.rangedAttack * levelBonus);
-  derived.magicAttack = Math.floor(derived.magicAttack * levelBonus);
-  derived.armor = Math.floor(derived.armor * levelBonus);
-  derived.magicResist = Math.floor(derived.magicResist * levelBonus);
+  // 等级加成（每级 +5% 攻防血，仅英雄）
+  if (applyLevelBonus) {
+    const levelBonus = 1 + (level - 1) * 0.05;
+    derived.maxHp = Math.floor(derived.maxHp * levelBonus);
+    derived.physicalAttack = Math.floor(derived.physicalAttack * levelBonus);
+    derived.rangedAttack = Math.floor(derived.rangedAttack * levelBonus);
+    derived.magicAttack = Math.floor(derived.magicAttack * levelBonus);
+    derived.armor = Math.floor(derived.armor * levelBonus);
+    derived.magicResist = Math.floor(derived.magicResist * levelBonus);
+  }
 
   // 上限
   derived.critRate = Math.min(derived.critRate, GAME_BALANCE.CRIT_RATE_CAP);
@@ -169,6 +178,8 @@ export function calcDamage(
   defender: DerivedStats,
   instance: DamageInstance,
   defenderTags?: string[],
+  attackerLevel?: number,
+  defenderLevel?: number,
 ): DamageResult {
   // 1. 命中判定
   const hitChance = attacker.accuracy / (attacker.accuracy + defender.evade);
@@ -207,6 +218,17 @@ export function calcDamage(
   // 8. 元素加成（holy vs undead）
   if (instance.element === 'holy' && defenderTags?.includes('undead')) {
     amount *= (1 + GAME_BALANCE.HOLY_UNDEAD_BONUS);
+  }
+
+  // 9. 等级压制
+  if (attackerLevel != null && defenderLevel != null) {
+    const levelDiff = attackerLevel - defenderLevel;
+    const suppressionMult = 1 + levelDiff * GAME_BALANCE.LEVEL_SUPPRESSION_RATE;
+    const clamped = Math.max(
+      GAME_BALANCE.LEVEL_SUPPRESSION_MIN,
+      Math.min(GAME_BALANCE.LEVEL_SUPPRESSION_MAX, suppressionMult),
+    );
+    amount = amount * clamped;
   }
 
   return { amount: Math.floor(amount), isCrit, isBlocked, isHit: true };

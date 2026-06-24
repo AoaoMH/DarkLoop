@@ -225,6 +225,17 @@ export interface SkillEffect {
   extraHits?: number;
 }
 
+/** 技能目标选择模式 */
+export type SkillTargeting =
+  | 'single'      // 单体：手动选1个敌方目标
+  | 'chain'       // 连锁：手动选1个，自动波及N个（不可选）
+  | 'multi'       // 多选：手动选N个目标
+  | 'auto_all'    // 全体自动：无需选择，命中所有敌方
+  | 'self';       // 自身：无需选择，作用于自己
+
+/** 连锁目标选择策略 */
+export type ChainSelection = 'random' | 'lowest_hp' | 'nearest';
+
 export interface Skill {
   id: string;
   name: string;
@@ -240,6 +251,16 @@ export interface Skill {
   selfEffects?: SkillEffect[];
   chargeSkill?: boolean;
   effectName?: string;
+  /** 目标模式，默认 'single' */
+  targeting?: SkillTargeting;
+  /** 连锁/多选时的目标数量（含主目标） */
+  targetCount?: number;
+  /** 连锁技能的次要目标选择策略 */
+  chainSelection?: ChainSelection;
+  /** 连锁伤害衰减率（每次波及伤害 = 前一次 * 衰减率，默认0.7） */
+  chainDecay?: number;
+  /** AOE/连锁时每个目标的伤害倍率修正（默认1.0） */
+  multiTargetDamageRate?: number;
 }
 
 // ─── 天赋盘系统 ─────────────────────────────────────────
@@ -312,6 +333,72 @@ export interface Pet {
 
 // ─── 怪物与关卡 ─────────────────────────────────────────
 
+/** 怪物模板（静态定义，可复用） */
+export interface MonsterTemplate {
+  id: string;
+  name: string;
+  baseStats: PrimaryStats;           // 1级时的基础属性
+  statGrowth: Partial<PrimaryStats>; // 每级成长率
+  skills: string[];                  // 技能ID列表（引用 SKILL_MAP）
+  tags: string[];
+  icon: string;
+  isBoss?: boolean;
+  isElite?: boolean;
+  loot: LootEntry[];
+}
+
+/** 怪物战斗实例（运行时生成，按等级缩放） */
+export interface EnemyCombatState {
+  uid: string;              // 唯一实例ID（同模板多实例区分）
+  templateId: string;
+  name: string;
+  icon: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  derived: DerivedStats;    // 由缩放后属性计算
+  tags: string[];
+  isBoss: boolean;
+  isElite: boolean;
+  buffs: TurnBuff[];
+  alive: boolean;
+  skills: Skill[];          // 从模板加载的技能实例
+  loot: LootEntry[];
+}
+
+/** 波次定义（引用怪物模板+等级） */
+export interface WaveDef {
+  monsters: { templateId: string; level: number }[];
+}
+
+/** 关卡定义 */
+export interface LevelDef {
+  id: string;               // 如 '1-1'
+  regionId: string;
+  stageNum: number;          // 1-10
+  name: string;              // 显示名
+  desc: string;
+  recommendLevel: number;
+  waves: WaveDef[];
+  firstClearReward: Partial<Resources>;
+}
+
+/** 大地区定义 */
+export interface RegionDef {
+  id: string;
+  name: string;
+  desc: string;
+  theme: string;
+  levels: LevelDef[];
+}
+
+export interface LevelProgress {
+  cleared: boolean;
+  stars: number;
+  firstClearClaimed: boolean;
+}
+
+/** @deprecated 由 MonsterTemplate 替代 */
 export interface MonsterDef {
   id: string;
   name: string;
@@ -323,28 +410,9 @@ export interface MonsterDef {
   loot: LootEntry[];
 }
 
-export interface WaveDef {
-  monsters: MonsterDef[];
-}
-
-export interface LevelDef {
-  id: string;
-  name: string;
-  desc: string;
-  difficulty: number;
-  recommendLevel: number;
-  waves: WaveDef[];
-  firstClearReward: Partial<Resources>;
-}
-
-export interface LevelProgress {
-  cleared: boolean;
-  stars: number;
-  firstClearClaimed: boolean;
-}
-
 // ─── 战斗系统 ─────────────────────────────────────────
 
+/** @deprecated 由 EnemyCombatState 替代 */
 export interface Monster {
   id: EntityId;
   templateId: string;
@@ -395,6 +463,8 @@ export type TurnActionKind = 'attack' | 'skill' | 'defend' | 'flee' | 'dot';
 export interface TurnAction {
   kind: TurnActionKind;
   skillId?: string;
+  targetUid?: string;     // 单体/连锁的主目标
+  targetUids?: string[];  // 多选模式的多个目标
 }
 
 export type BuffKind =
@@ -413,6 +483,8 @@ export interface TurnBuff {
 
 export interface TurnState {
   phase: BattlePhase;
+
+  // ── 英雄状态 ──
   heroHp: number;
   heroMaxHp: number;
   heroRage: number;
@@ -421,22 +493,25 @@ export interface TurnState {
   heroShield: number;
   heroChargeBonus: number;
   heroDerived: DerivedStats;
-  enemyHp: number;
-  enemyMaxHp: number;
-  enemyDef: number;
-  enemyAtk: number;
-  enemySpeed: number;
-  enemyIsBoss: boolean;
-  enemyName: string;
-  enemyIcon: string;
-  enemyTags: string[];
-  enemyDerived: DerivedStats;
+  heroBuffs: TurnBuff[];
+  heroLevel: number;
+
+  // ── 敌人状态（数组，替代原单个敌人字段） ──
+  enemies: EnemyCombatState[];
+  currentEnemyIndex: number;   // 当前行动的敌人索引
+
+  // ── 目标选择 ──
+  selectedTargetUid: string | null;  // 玩家选中的目标
+  targetingMode: boolean;            // 是否处于选目标模式
+  pendingSkillId: string | null;     // 等待选目标的技能
+
+  // ── 波次 ──
   waveIndex: number;
   totalWaves: number;
+
+  // ── 其他 ──
   turnCount: number;
   log: TurnLogEntry[];
-  heroBuffs: TurnBuff[];
-  enemyBuffs: TurnBuff[];
 }
 
 export interface TurnLogEntry {
@@ -450,6 +525,8 @@ export interface TurnLogEntry {
   rageGain?: number;
   crit?: boolean;
   defeated?: boolean;
+  targetUid?: string;    // 攻击目标UID
+  enemyIndex?: number;   // 行动敌人索引（敌方行动时）
 }
 
 // ─── 建筑系统 ─────────────────────────────────────────
@@ -481,8 +558,6 @@ export interface PlayerSave {
   buildings: Building[];
   resources: Resources;
   levelProgress: Record<string, LevelProgress>;
-  stage: number;
-  highestStage: number;
   lastOnlineAt: Timestamp;
   createdAt: Timestamp;
   updatedAt: Timestamp;

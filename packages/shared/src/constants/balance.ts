@@ -128,4 +128,9 @@ export const GAME_BALANCE = {
   CURSE_STAT_REDUCTION: 0.2,      // 诅咒降低 20% 属性
   HOLY_UNDEAD_BONUS: 0.5,         // 神圣对亡灵 +50% 伤害
   HOLY_HEAL_RATE: 0.1,            // 神圣对非亡灵治疗 10% 最大生命
+
+  // ─── 等级压制 ───
+  LEVEL_SUPPRESSION_RATE: 0.07,   // 每级差 ±7% 伤害
+  LEVEL_SUPPRESSION_MIN: 0.15,    // 最低造成 15% 伤害
+  LEVEL_SUPPRESSION_MAX: 3.0,     // 最高造成 300% 伤害
 } as const;

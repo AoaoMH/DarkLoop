@@ -1,10 +1,12 @@
 /**
- * 战士技能 - 怒气消耗制
- * 重击为初始技能（不在天赋树）；其余 9 个主动技能通过天赋树学习
- * 三级：基础技能（盾击/蓄力一击/裂伤斩）、核心技能（旋风斩/烈焰斩/雷霆突袭）、防御技能（嘲讽/钢铁壁垒/不屈意志）
+ * 技能定义 - 战士技能 + 怪物技能
+ * 战士：怒气消耗制，重击为初始技能（不在天赋树），其余通过天赋树学习
+ * 怪物：无资源限制，AI 自由选择
  */
 
 import { SkillType, type Skill } from '../types';
+
+// ─── 战士技能 ─────────────────────────────────────────
 
 export const WARRIOR_SKILLS: Skill[] = [
   // ─── 初始技能（默认拥有，不在天赋树） ─────────────────
@@ -20,6 +22,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '⚔️',
     effectName: 'slash_01.png',
     rageCost: 30,
+    targeting: 'single',
   },
 
   // ─── 第1级 基础技能 ─────────────────────────────────
@@ -35,6 +38,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '🛡️',
     effectName: 'circle_01.png',
     rageCost: 25,
+    targeting: 'single',
     effects: [{ kind: 'stun', chance: 0.35, duration: 1 }],
   },
   {
@@ -49,6 +53,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '⚡',
     effectName: 'spark_01.png',
     rageCost: 30,
+    targeting: 'single',
     chargeSkill: true,
   },
   {
@@ -63,15 +68,33 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '🗡️',
     effectName: 'slash_03.png',
     rageCost: 20,
+    targeting: 'single',
     effects: [{ kind: 'bleed', value: 8, duration: 3 }],
   },
 
   // ─── 第2级 核心技能 ─────────────────────────────────
   {
+    id: 'skill_shield_throw',
+    name: '飞盾',
+    type: SkillType.Active,
+    description: '投掷盾牌造成 150% 伤害，连锁波及 2 个额外目标（每个 70% 伤害）',
+    cooldown: 0,
+    damageMultiplier: 1.5,
+    level: 1,
+    maxLevel: 10,
+    icon: '🛡️',
+    effectName: 'circle_01.png',
+    rageCost: 35,
+    targeting: 'chain',
+    targetCount: 3,
+    chainSelection: 'random',
+    chainDecay: 0.7,
+  },
+  {
     id: 'skill_whirlwind',
     name: '旋风斩',
     type: SkillType.Active,
-    description: '造成 100% 伤害，额外攻击 2 个目标（每个 50% 伤害）',
+    description: '横扫所有敌人，每个造成 100% 伤害',
     cooldown: 0,
     damageMultiplier: 1.0,
     level: 1,
@@ -79,7 +102,23 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '🌀',
     effectName: 'twirl_01.png',
     rageCost: 50,
-    effects: [{ kind: 'multi_target', extraHits: 2 }],
+    targeting: 'auto_all',
+    multiTargetDamageRate: 1.0,
+  },
+  {
+    id: 'skill_sweep',
+    name: '横扫',
+    type: SkillType.Active,
+    description: '横扫所有敌人，每个造成 80% 伤害',
+    cooldown: 0,
+    damageMultiplier: 0.8,
+    level: 1,
+    maxLevel: 10,
+    icon: '🌀',
+    effectName: 'slash_02.png',
+    rageCost: 40,
+    targeting: 'auto_all',
+    multiTargetDamageRate: 1.0,
   },
   {
     id: 'skill_flame_slash',
@@ -93,6 +132,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '🔥',
     effectName: 'fire_01.png',
     rageCost: 40,
+    targeting: 'single',
     effects: [{ kind: 'burn', value: 12, duration: 3 }],
   },
   {
@@ -107,6 +147,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '⚡',
     effectName: 'light_01.png',
     rageCost: 45,
+    targeting: 'single',
     effects: [{ kind: 'paralyse', chance: 0.25, duration: 2 }],
   },
 
@@ -123,6 +164,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '📢',
     effectName: 'magic_04.png',
     rageCost: 25,
+    targeting: 'self',
     selfEffects: [
       { kind: 'def_up', value: 0.3, duration: 2 },
       { kind: 'rage_gain', value: 15 },
@@ -140,6 +182,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '🏰',
     effectName: 'magic_02.png',
     rageCost: 50,
+    targeting: 'self',
     selfEffects: [
       { kind: 'def_up', value: 0.7, duration: 1 },
       { kind: 'shield', value: 30 },
@@ -157,6 +200,7 @@ export const WARRIOR_SKILLS: Skill[] = [
     icon: '💪',
     effectName: 'flare_01.png',
     rageCost: 30,
+    targeting: 'self',
     selfEffects: [{ kind: 'indomitable', value: 0.4, duration: 3 }],
   },
 ];
@@ -164,8 +208,185 @@ export const WARRIOR_SKILLS: Skill[] = [
 // 初始技能（战士新建时携带）
 export const WARRIOR_STARTER_SKILL_IDS = ['skill_heavy_strike'];
 
-// 按 id 查询技能
-export const SKILL_MAP: Record<string, Skill> = WARRIOR_SKILLS.reduce(
+// ─── 怪物技能 ─────────────────────────────────────────
+
+export const MONSTER_SKILLS: Skill[] = [
+  {
+    id: 'mob_tackle',
+    name: '冲撞',
+    type: SkillType.Active,
+    description: '造成 120% 物理伤害',
+    cooldown: 0,
+    damageMultiplier: 1.2,
+    level: 1,
+    maxLevel: 1,
+    icon: '💢',
+    rageCost: 0,
+    targeting: 'single',
+  },
+  {
+    id: 'mob_acid_spit',
+    name: '酸液喷吐',
+    type: SkillType.Active,
+    description: '造成 80% 伤害，降低目标护甲 30%（2 回合）',
+    cooldown: 0,
+    damageMultiplier: 0.8,
+    level: 1,
+    maxLevel: 1,
+    icon: '🧪',
+    rageCost: 0,
+    targeting: 'single',
+    effects: [{ kind: 'def_down', value: 0.3, duration: 2 }],
+  },
+  {
+    id: 'mob_frost_nova',
+    name: '冰霜新星',
+    type: SkillType.Active,
+    description: '造成 60% 冰霜伤害，25% 概率冰冻 1 回合',
+    cooldown: 0,
+    damageMultiplier: 0.6,
+    level: 1,
+    maxLevel: 1,
+    icon: '❄️',
+    rageCost: 0,
+    targeting: 'single',
+    effects: [{ kind: 'freeze', chance: 0.25, duration: 1 }],
+  },
+  {
+    id: 'mob_slam',
+    name: '猛击',
+    type: SkillType.Active,
+    description: '造成 200% 物理伤害',
+    cooldown: 0,
+    damageMultiplier: 2.0,
+    level: 1,
+    maxLevel: 1,
+    icon: '💥',
+    rageCost: 0,
+    targeting: 'single',
+  },
+  {
+    id: 'mob_split',
+    name: '分裂',
+    type: SkillType.Active,
+    description: '回复 15% 最大生命',
+    cooldown: 0,
+    damageMultiplier: 0,
+    level: 1,
+    maxLevel: 1,
+    icon: '✨',
+    rageCost: 0,
+    targeting: 'self',
+    selfEffects: [{ kind: 'heal', value: 0.15 }],
+  },
+  {
+    id: 'mob_heal',
+    name: '自愈',
+    type: SkillType.Active,
+    description: '回复 20% 最大生命',
+    cooldown: 0,
+    damageMultiplier: 0,
+    level: 1,
+    maxLevel: 1,
+    icon: '💚',
+    rageCost: 0,
+    targeting: 'self',
+    selfEffects: [{ kind: 'heal', value: 0.20 }],
+  },
+  {
+    id: 'mob_arrow_shot',
+    name: '箭矢射击',
+    type: SkillType.Active,
+    description: '造成 100% 远程物理伤害',
+    cooldown: 0,
+    damageMultiplier: 1.0,
+    level: 1,
+    maxLevel: 1,
+    icon: '🏹',
+    rageCost: 0,
+    targeting: 'single',
+  },
+  {
+    id: 'mob_bone_shield',
+    name: '骨盾',
+    type: SkillType.Active,
+    description: '获得 20 点护盾，减伤 30%（2 回合）',
+    cooldown: 0,
+    damageMultiplier: 0,
+    level: 1,
+    maxLevel: 1,
+    icon: '🦴',
+    rageCost: 0,
+    targeting: 'self',
+    selfEffects: [
+      { kind: 'shield', value: 20 },
+      { kind: 'def_up', value: 0.3, duration: 2 },
+    ],
+  },
+  {
+    id: 'mob_fireball',
+    name: '火球术',
+    type: SkillType.Active,
+    description: '造成 150% 火焰伤害',
+    cooldown: 0,
+    damageMultiplier: 1.5,
+    level: 1,
+    maxLevel: 1,
+    icon: '🔥',
+    rageCost: 0,
+    targeting: 'single',
+  },
+  {
+    id: 'mob_curse',
+    name: '诅咒',
+    type: SkillType.Active,
+    description: '降低目标 20% 全属性（3 回合）',
+    cooldown: 0,
+    damageMultiplier: 0,
+    level: 1,
+    maxLevel: 1,
+    icon: '💀',
+    rageCost: 0,
+    targeting: 'single',
+    effects: [{ kind: 'curse', value: 0.2, duration: 3 }],
+  },
+  {
+    id: 'mob_rage',
+    name: '狂暴',
+    type: SkillType.Active,
+    description: '提升自身 30% 攻击力（3 回合）',
+    cooldown: 0,
+    damageMultiplier: 0,
+    level: 1,
+    maxLevel: 1,
+    icon: '😡',
+    rageCost: 0,
+    targeting: 'self',
+    selfEffects: [{ kind: 'atk_up', value: 0.3, duration: 3 }],
+  },
+  {
+    id: 'mob_poison_strike',
+    name: '毒击',
+    type: SkillType.Active,
+    description: '造成 90% 伤害，附加中毒 3 回合（每回合 6 点伤害）',
+    cooldown: 0,
+    damageMultiplier: 0.9,
+    level: 1,
+    maxLevel: 1,
+    icon: '☠️',
+    rageCost: 0,
+    targeting: 'single',
+    effects: [{ kind: 'poison', value: 6, duration: 3 }],
+  },
+];
+
+// ─── 技能查询 ─────────────────────────────────────────
+
+/** 所有技能（战士 + 怪物） */
+export const ALL_SKILLS: Skill[] = [...WARRIOR_SKILLS, ...MONSTER_SKILLS];
+
+/** 按 id 查询技能 */
+export const SKILL_MAP: Record<string, Skill> = ALL_SKILLS.reduce(
   (m, s) => { m[s.id] = s; return m; },
   {} as Record<string, Skill>,
 );

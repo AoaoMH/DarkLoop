@@ -30,7 +30,7 @@ export async function playerRoutes(app: FastifyInstance) {
     //   create: { id, username: id, saveData: JSON.stringify(saveData), password: '' },
     // });
 
-    app.log.info(`Player ${id} saved, stage: ${saveData.stage}`);
+    app.log.info(`Player ${id} saved`);
     return { success: true };
   });
 

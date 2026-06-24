@@ -8,10 +8,9 @@
  */
 
 import { Server as SocketServer } from 'socket.io';
-import type { EntityId, PlayerSave, CombatResult, Monster } from '@shared/types';
+import type { EntityId, PlayerSave } from '@shared/types';
 import { ServerEvent } from '@shared/types';
-import { simulateCombat, generateEquipment, calcOfflineReward } from '@shared/logic';
-import { MONSTER_TEMPLATES } from '../services/templates';
+import { generateEquipment } from '@shared/logic';
 
 interface RoomMember {
   socketId: string;
@@ -22,7 +21,6 @@ interface RoomMember {
 interface Room {
   id: EntityId;
   members: Map<string, RoomMember>;
-  stage: number;
   createdAt: number;
 }
 
@@ -38,7 +36,6 @@ export class RoomManager {
     const room: Room = {
       id: roomId,
       members: new Map(),
-      stage: playerData.stage,
       createdAt: Date.now(),
     };
     this.rooms.set(roomId, room);

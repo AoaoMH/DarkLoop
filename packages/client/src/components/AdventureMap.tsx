@@ -1,37 +1,22 @@
 /**
- * 冒险地图 - 暗黑风卷轴地图，3 关卡节点沿蜿蜒路径排列
- * hover 显示信息浮窗（纯展示），点击节点直接开始战斗
+ * 冒险地图 - 区域标签 + 关卡网格
+ * 点击关卡节点开始战斗
  */
 
 import React, { useState } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { LEVELS } from '@shared/constants/levels';
+import { REGIONS, isRegionUnlocked, isLevelUnlocked } from '@shared/constants/regions';
 
 interface AdventureMapProps {
   onStartLevel: (levelId: string) => void;
 }
 
-// 节点坐标（百分比，相对于地图画布）
-const NODE_POS: { id: string; x: number; y: number }[] = [
-  { id: 'lv1_slime_plains', x: 18, y: 72 },
-  { id: 'lv2_skeleton_graveyard', x: 50, y: 42 },
-  { id: 'lv3_demon_lair', x: 82, y: 18 },
-];
-
 export function AdventureMap({ onStartLevel }: AdventureMapProps) {
   const levelProgress = useGameStore((s) => s.levelProgress);
+  const [activeRegionIdx, setActiveRegionIdx] = useState(0);
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const posOf = (id: string) => NODE_POS.find(n => n.id === id)!;
-
-  // 构建 SVG 蜿蜒路径
-  const pathD = NODE_POS.reduce((acc, node, i) => {
-    if (i === 0) return `M ${node.x} ${node.y}`;
-    const prev = NODE_POS[i - 1];
-    const cx = (prev.x + node.x) / 2;
-    const cy = (prev.y + node.y) / 2 - 8;
-    return `${acc} Q ${cx} ${cy} ${node.x} ${node.y}`;
-  }, '');
+  const region = REGIONS[activeRegionIdx];
 
   return (
     <div className="adventure-map">
@@ -40,56 +25,66 @@ export function AdventureMap({ onStartLevel }: AdventureMapProps) {
         <span className="adventure-map__hint">点击关卡节点开始冒险</span>
       </div>
 
-      <div className="adventure-map__canvas">
-        <svg className="adventure-map__path" viewBox="0 0 100 100" preserveAspectRatio="none">
-          <path
-            d={pathD}
-            fill="none"
-            stroke="rgba(255, 184, 77, 0.35)"
-            strokeWidth="0.8"
-            strokeLinecap="round"
-            strokeDasharray="2 1.5"
-            vectorEffect="non-scaling-stroke"
-          />
-        </svg>
+      {/* 区域标签 */}
+      <div className="region-tabs">
+        {REGIONS.map((r, i) => {
+          const unlocked = isRegionUnlocked(r.id, levelProgress);
+          return (
+            <button
+              key={r.id}
+              className={`region-tab ${i === activeRegionIdx ? 'region-tab--active' : ''} ${!unlocked ? 'region-tab--locked' : ''}`}
+              onClick={() => unlocked && setActiveRegionIdx(i)}
+              disabled={!unlocked}
+            >
+              {!unlocked && <span className="region-tab__lock">🔒</span>}
+              <span className="region-tab__name">{r.name}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        {LEVELS.map((level) => {
-          const pos = posOf(level.id);
+      {/* 关卡网格 */}
+      <div className="level-grid">
+        {region.levels.map((level) => {
+          const unlocked = isLevelUnlocked(level.id, levelProgress);
           const prog = levelProgress[level.id];
           const cleared = prog?.cleared ?? false;
           const isHover = hovered === level.id;
+
           return (
             <div
               key={level.id}
-              className={`level-node level-node--diff-${level.difficulty} ${cleared ? 'level-node--cleared' : ''} ${isHover ? 'level-node--hover' : ''}`}
-              style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
+              className={`level-cell ${cleared ? 'level-cell--cleared' : ''} ${!unlocked ? 'level-cell--locked' : ''} ${isHover && unlocked ? 'level-cell--hover' : ''}`}
               onMouseEnter={() => setHovered(level.id)}
               onMouseLeave={() => setHovered(null)}
-              onClick={() => onStartLevel(level.id)}
+              onClick={() => unlocked && onStartLevel(level.id)}
             >
-              <div className="level-node__marker">
-                <div className="level-node__icon">{level.waves[level.waves.length - 1].monsters[0].icon}</div>
-                {cleared && <div className="level-node__check">✓</div>}
+              <div className="level-cell__id">{level.name}</div>
+              <div className="level-cell__status">
+                {cleared ? '✓' : !unlocked ? '🔒' : '●'}
               </div>
-              <div className="level-node__label">{level.name}</div>
-              <div className="level-node__stars">{'★'.repeat(level.difficulty)}</div>
 
-              {isHover && (
-                <div className={`level-hover ${pos.x > 60 ? 'level-hover--left' : 'level-hover--right'}`}>
-                  <div className="level-hover__title">{level.name}</div>
-                  <div className="level-hover__desc">{level.desc}</div>
-                  <div className="level-hover__meta">
-                    <div>👹 怪物等级：{level.waves[0].monsters[0].level} ~ {level.waves[level.waves.length - 1].monsters[0].level}</div>
-                    <div>⚔️ 波次：{level.waves.length}（3 小怪 + 1 Boss）</div>
+              {isHover && unlocked && (
+                <div className="level-tooltip">
+                  <div className="level-tooltip__title">{level.name}</div>
+                  <div className="level-tooltip__desc">{region.name}</div>
+                  <div className="level-tooltip__meta">
                     <div>🎯 推荐 Lv.{level.recommendLevel}</div>
+                    <div>⚔️ 波次：{level.waves.length}</div>
                     <div>💎 首通：{level.firstClearReward.gems ?? 0} 钻 · 🎖️ {level.firstClearReward.badge ?? 0} 勋章</div>
                   </div>
-                  <div className="level-hover__cta">▶ 点击节点进入战斗</div>
+                  {cleared && <div className="level-tooltip__cleared">已通关</div>}
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {/* 区域描述 */}
+      <div className="region-desc">
+        <div className="region-desc__name">{region.name}</div>
+        <div className="region-desc__text">{region.desc}</div>
       </div>
     </div>
   );
