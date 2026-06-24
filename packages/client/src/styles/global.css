@@ -556,7 +556,7 @@ body {
 
 .stat-item__label {
   font-size: 15px;
-  color: var(--text-dim);
+  color: var(--text-light);
   font-family: var(--font-cn);
 }
 
@@ -589,7 +589,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-height: 360px;
+  flex: 1;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -2135,11 +2135,11 @@ body {
  * ──────────────────────────────────────────────────────── */
 
 .item-tooltip {
-  width: 230px;
-  padding: 10px;
+  width: 250px;
+  padding: 12px;
   color: var(--text-light);
   font-family: var(--font-cn);
-  font-size: 13.5px;
+  font-size: 15px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2189,13 +2189,13 @@ body {
   gap: 4px;
 }
 .item-tooltip__name {
-  font-size: 16px;
+  font-size: 20px;
   font-weight: bold;
   letter-spacing: 1px;
   text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.8);
 }
 .item-tooltip__slot {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-dim);
   background: rgba(0, 0, 0, 0.3);
   padding: 1px 4px;
@@ -2205,13 +2205,18 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: 13px;
 }
 .item-tooltip__rarity {
   font-weight: bold;
 }
 .item-tooltip__req-lvl {
   color: var(--text-dim);
+}
+.item-tooltip__type-name {
+  font-size: 13px;
+  color: var(--text-dim);
+  font-style: italic;
 }
 .item-tooltip__divider {
   height: 2px;
@@ -2229,29 +2234,41 @@ body {
   display: flex;
   justify-content: space-between;
   font-family: var(--font-mono);
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.5;
 }
 .item-tooltip__stat-label {
-  color: var(--text-dim);
+  color: var(--text-light);
 }
 .item-tooltip__stat-value {
-  color: #81c784; /* 属性值淡绿色 */
+  color: #81c784;
   font-weight: bold;
 }
 .item-tooltip__affix-name {
-  color: #64b5f6; /* 词缀淡蓝色 */
+  color: #64b5f6;
 }
 .item-tooltip__affix-val {
   color: #64b5f6;
   font-weight: bold;
+}
+.item-tooltip__affix-tier {
+  color: #ffa726;
+  font-size: 14px;
+  margin-left: 4px;
+  font-weight: bold;
+}
+.item-tooltip__affix-range {
+  color: #888;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
 /* ────────────────────────────────────────────────────────
  * 稀有度专属底框装饰 (Wood, Stone, Iron, Mithril, Gold, Crystal)
  * ──────────────────────────────────────────────────────── */
 
-/* 1. Common 普通 (木质底框) */
-.item-tooltip--common {
+/* 1. Normal 普通 (木质底框) */
+.item-tooltip--normal {
   background: #4e3629;
   border-color: #2b1d16;
   box-shadow: 
@@ -2260,23 +2277,23 @@ body {
     3px 3px 0 rgba(0, 0, 0, 0.5);
 }
 
-/* 2. Fine 优秀 (石质绿宝石装饰) */
-.item-tooltip--fine {
-  background: #2a3d30;
-  border-color: #16241a;
+/* 2. Magic 魔法 (蓝色调底框) */
+.item-tooltip--magic {
+  background: #1a2a4a;
+  border-color: #0d1828;
   box-shadow: 
-    inset 2px 2px 0 #3e5a47, 
-    inset -2px -2px 0 #101c13,
+    inset 2px 2px 0 #2a4a7a, 
+    inset -2px -2px 0 #08101c,
     3px 3px 0 rgba(0, 0, 0, 0.5);
 }
 
-/* 3. Rare 稀有 (铁质/深蓝底框) */
+/* 3. Rare 稀有 (金色底框) */
 .item-tooltip--rare {
-  background: #203040;
-  border-color: #0f1821;
+  background: #3d3520;
+  border-color: #5a4a18;
   box-shadow: 
-    inset 2px 2px 0 #304860, 
-    inset -2px -2px 0 #0b1016,
+    inset 2px 2px 0 #7a6a28, 
+    inset -2px -2px 0 #1a1608,
     3px 3px 0 rgba(0, 0, 0, 0.5);
 }
 
@@ -2333,4 +2350,181 @@ body {
 @keyframes apex-text-glow {
   0% { background-position: 0% center; }
   100% { background-position: 200% center; }
+}
+
+/* ────────────────────────────────────────────────────────
+ * 装备选择弹窗 (EquipSelectPopup)
+ * ──────────────────────────────────────────────────────── */
+
+.equip-popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.equip-popup {
+  width: 380px;
+  max-height: 500px;
+  background: var(--wall-darker);
+  border: 4px solid #111;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+}
+
+.equip-popup__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--wall-dark);
+  border-bottom: 3px solid #111;
+}
+
+.equip-popup__title {
+  font-size: 16px;
+  color: var(--sun-bright);
+  font-weight: bold;
+  font-family: var(--font-cn);
+}
+
+.equip-popup__close {
+  background: none;
+  border: 2px solid var(--ember-dark);
+  color: var(--ember);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+
+.equip-popup__close:hover {
+  background: var(--ember-dark);
+}
+
+.equip-popup__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.equip-popup__section {
+  margin-bottom: 12px;
+}
+
+.equip-popup__section-title {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  font-family: var(--font-cn);
+}
+
+.equip-popup__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  margin-bottom: 4px;
+  border: 2px solid;
+  background: var(--plank-dark);
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.equip-popup__item:hover {
+  background: var(--plank);
+}
+
+.equip-popup__item--current {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.equip-popup__item-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+.equip-popup__item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  font-family: var(--font-cn);
+}
+
+.equip-popup__item-level {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.equip-popup__diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  font-family: var(--font-mono);
+}
+
+.equip-popup__diff-up {
+  color: #81c784;
+}
+
+.equip-popup__diff-down {
+  color: #ef5350;
+}
+
+.equip-popup__empty {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 20px;
+  font-size: 14px;
+}
+
+/* ────────────────────────────────────────────────────────
+ * 背包右键菜单 (Inventory Context Menu)
+ * ──────────────────────────────────────────────────────── */
+
+.inv-context-menu-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 9998;
+}
+
+.inv-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--wall-darker);
+  border: 3px solid #111;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.inv-context-menu__item {
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  font-size: 14px;
+  font-family: var(--font-cn);
+  cursor: pointer;
+  text-align: left;
+}
+
+.inv-context-menu__item:hover {
+  background: var(--plank-dark);
+}
+
+.inv-context-menu__item--sell:hover {
+  background: #3d2a10;
+  color: var(--sun-bright);
 }

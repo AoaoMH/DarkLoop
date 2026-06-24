@@ -5,10 +5,28 @@
 
 import type {
   Hero, PrimaryStats, DerivedStats, Equipment, Monster, CombatResult, CombatLogEntry, Reward,
-  DamageInstance, DamageResult, Affix,
+  DamageInstance, DamageResult, RolledMod,
 } from '../types';
-import { Rarity } from '../types';
 import { GAME_BALANCE } from '../constants/balance';
+import { BASE_TYPES } from '../constants/equipment';
+
+// ─── 装备词缀工具 ─────────────────────────────────────
+
+/** 获取装备上的所有词缀（隐式 + 前缀 + 后缀 + 特殊） */
+function getAllMods(eq: Equipment): RolledMod[] {
+  return [
+    ...(eq.implicit ? [eq.implicit] : []),
+    ...eq.prefixes,
+    ...eq.suffixes,
+    ...(eq.specialAffix ? [eq.specialAffix] : []),
+  ];
+}
+
+/** 从 BaseType 获取基础属性 */
+function getBaseStats(eq: Equipment): Partial<PrimaryStats> {
+  const base = BASE_TYPES.find(b => b.id === eq.baseTypeId);
+  return base?.baseStats ?? {};
+}
 
 // ─── 属性聚合 ─────────────────────────────────────────
 
@@ -33,12 +51,14 @@ function isDerivedStatKey(key: string): key is keyof DerivedStats {
 export function calcCombinedPrimary(hero: Hero): PrimaryStats {
   const combined = { ...hero.stats };
   for (const eq of hero.equipment) {
-    for (const [k, v] of Object.entries(eq.baseStats)) {
+    if (!eq) continue;
+    const baseStats = getBaseStats(eq);
+    for (const [k, v] of Object.entries(baseStats)) {
       if (isPrimaryStatKey(k)) combined[k] += v as number;
     }
-    for (const affix of eq.affixes) {
-      if (isPrimaryStatKey(affix.stat)) {
-        combined[affix.stat] += affix.value;
+    for (const mod of getAllMods(eq)) {
+      if (isPrimaryStatKey(mod.stat)) {
+        combined[mod.stat] += mod.value;
       }
     }
   }
@@ -61,12 +81,14 @@ export function calcDerivedStats(base: PrimaryStats, equipment: Equipment[], lev
 
   // 聚合装备 baseStats + 基础属性词缀
   for (const eq of equipment) {
-    for (const [k, v] of Object.entries(eq.baseStats)) {
+    if (!eq) continue;
+    const baseStats = getBaseStats(eq);
+    for (const [k, v] of Object.entries(baseStats)) {
       if (isPrimaryStatKey(k)) combined[k] += v as number;
     }
-    for (const affix of eq.affixes) {
-      if (isPrimaryStatKey(affix.stat)) {
-        combined[affix.stat] += affix.value;
+    for (const mod of getAllMods(eq)) {
+      if (isPrimaryStatKey(mod.stat)) {
+        combined[mod.stat] += mod.value;
       }
     }
   }
@@ -101,9 +123,10 @@ export function calcDerivedStats(base: PrimaryStats, equipment: Equipment[], lev
 
   // 聚合二级属性词缀
   for (const eq of equipment) {
-    for (const affix of eq.affixes) {
-      if (isDerivedStatKey(affix.stat)) {
-        derived[affix.stat] += affix.value;
+    if (!eq) continue;
+    for (const mod of getAllMods(eq)) {
+      if (isDerivedStatKey(mod.stat)) {
+        derived[mod.stat] += mod.value;
       }
     }
   }
@@ -302,17 +325,4 @@ export function calcOfflineReward(
 
 function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-export function getAffixCount(rarity: Rarity): number {
-  switch (rarity) {
-    case Rarity.Common: return 0;
-    case Rarity.Fine: return randomInt(1, 2);
-    case Rarity.Rare: return randomInt(2, 4);
-    case Rarity.Epic: return randomInt(3, 5);
-    case Rarity.Legendary: return randomInt(4, 6);
-    case Rarity.Mythic: return randomInt(5, 7);
-    case Rarity.Apex: return randomInt(6, 8);
-    default: return 0;
-  }
 }

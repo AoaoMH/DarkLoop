@@ -4,12 +4,14 @@
 
 import React, { useState, useMemo } from 'react';
 import { useGameStore } from '../stores/gameStore';
-import { RARITY_COLORS } from '@shared/constants/equipment';
-import { calcHeroDerived } from '@shared/logic/combat';
-import type { Rarity, DerivedStats, PrimaryStats, Equipment } from '@shared/types';
+import { RARITY_COLORS, SLOT_ORDER, SLOT_LABELS } from '@shared/constants/equipment';
+import { calcHeroDerived, calcDerivedStats } from '@shared/logic/combat';
+import type { Rarity, DerivedStats, PrimaryStats, Equipment, EquipSlot } from '@shared/types';
+import { EquipSlot as ES } from '@shared/types';
 import { EquipTooltip } from './EquipTooltip';
+import { EquipSelectPopup } from './EquipSelectPopup';
 
-const EQUIPMENT_SLOTS = ['武器', '头盔', '胸甲', '护腿', '靴子', '饰品'];
+const EQUIPMENT_SLOTS = SLOT_ORDER;
 
 const PRIMARY_STAT_META: Array<{ key: keyof PrimaryStats; label: string; icon: string }> = [
   { key: 'strength', label: '力量', icon: '💪' },
@@ -85,12 +87,15 @@ function fmtVal(v: number, fmt: 'int' | 'pct' | 'fp2'): string {
 
 interface EquipmentSlotCellProps {
   slotName: string;
+  slotIndex: number;
   equipped?: Equipment;
+  onClick?: () => void;
 }
 
-function EquipmentSlotCell({ slotName, equipped }: EquipmentSlotCellProps) {
+function EquipmentSlotCell({ slotName, slotIndex, equipped, onClick }: EquipmentSlotCellProps) {
   const [hovered, setHovered] = useState(false);
   const [position, setPosition] = useState<{ x: number; y: number; showBelow: boolean } | null>(null);
+  const unequipItem = useGameStore((s) => s.unequipItem);
 
   const handleMouseEnter = (e: React.MouseEvent) => {
     if (!equipped) return;
@@ -109,6 +114,12 @@ function EquipmentSlotCell({ slotName, equipped }: EquipmentSlotCellProps) {
     setHovered(false);
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    if (!equipped) return;
+    e.preventDefault();
+    unequipItem(slotIndex);
+  };
+
   return (
     <div
       className="equipment-slot"
@@ -121,6 +132,8 @@ function EquipmentSlotCell({ slotName, equipped }: EquipmentSlotCellProps) {
       }
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      onContextMenu={handleContextMenu}
     >
       <div className="equipment-slot__label">{slotName}</div>
       <div className={`equipment-slot__icon ${equipped ? equipped.icon : ''}`}>
@@ -136,6 +149,7 @@ function EquipmentSlotCell({ slotName, equipped }: EquipmentSlotCellProps) {
 export function CharacterPanel() {
   const hero = useGameStore((s) => s.hero);
   const [showDetail, setShowDetail] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
   const derived = useMemo<DerivedStats | null>(() => {
     if (!hero) return null;
@@ -163,18 +177,28 @@ export function CharacterPanel() {
       <div className="character-panel__equipment">
         <div className="character-panel__section-title">装备</div>
         <div className="equipment-grid">
-          {EQUIPMENT_SLOTS.map((slotName, index) => {
+          {EQUIPMENT_SLOTS.map((slot: EquipSlot, index: number) => {
             const equipped = hero.equipment[index];
             return (
               <EquipmentSlotCell
-                key={slotName}
-                slotName={slotName}
+                key={slot}
+                slotName={SLOT_LABELS[slot]}
+                slotIndex={index}
                 equipped={equipped}
+                onClick={() => setSelectedSlot(index)}
               />
             );
           })}
         </div>
       </div>
+
+      {selectedSlot !== null && (
+        <EquipSelectPopup
+          slotIndex={selectedSlot}
+          slot={SLOT_ORDER[selectedSlot]}
+          onClose={() => setSelectedSlot(null)}
+        />
+      )}
 
       {/* 属性面板 */}
       <div className="character-panel__stats">

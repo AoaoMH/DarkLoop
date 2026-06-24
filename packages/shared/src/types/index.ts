@@ -100,28 +100,34 @@ export interface DamageResult {
 // ─── 装备与词缀系统 ────────────────────────────────────
 
 export enum Rarity {
-  Common = 'common',
-  Fine = 'fine',
+  Normal = 'normal',
+  Magic = 'magic',
   Rare = 'rare',
   Epic = 'epic',
   Legendary = 'legendary',
-  Mythic = 'mythic',
   Apex = 'apex',
 }
 
 export enum EquipSlot {
   Weapon = 'weapon',
+  OffHand = 'offhand',
   Armor = 'armor',
   Helmet = 'helmet',
   Boots = 'boots',
-  Ring = 'ring',
+  Ring1 = 'ring1',
+  Ring2 = 'ring2',
   Amulet = 'amulet',
 }
 
-// 词缀 Tag：限制词缀可出现的职业/类型
+// 词缀类型
+export type AffixKind = 'prefix' | 'suffix';
+
+// 词缀 Tag：限制词缀可出现的职业/类型/部位
 export type AffixTag =
   | 'universal' | 'physical' | 'magic' | 'ranged'
   | 'warrior' | 'mage' | 'ranger'
+  | 'weapon' | 'offhand' | 'armor' | 'helmet' | 'boots' | 'ring' | 'amulet'
+  | 'offensive' | 'defensive' | 'support'
   | 'fire' | 'ice' | 'lightning' | 'poison' | 'shadow' | 'holy';
 
 // 词缀属性键：基础属性 / 二级属性 / 特殊词缀
@@ -137,33 +143,66 @@ export type AffixStatKey =
 export interface AffixDef {
   id: string;
   name: string;
+  kind: AffixKind;
+  group: string;
   tags: AffixTag[];
   stat: AffixStatKey;
-  valueRange: [number, number];
-  tierWeights: number[];
+  baseRange: [number, number];
+  nameWord?: { prefix?: string; suffix?: string };
 }
 
-// 词缀实例（装备上）
-export interface Affix {
+// 隐式词缀定义（基底自带）
+export interface ImplicitModDef {
+  stat: AffixStatKey;
+  baseRange: [number, number];
+  name: string;
+}
+
+// roll 出的词缀实例
+export interface RolledMod {
   defId: string;
   name: string;
   stat: AffixStatKey;
   value: number;
   tier: number;
+  kind: AffixKind;
 }
 
+// 基底定义（静态数据）
+export interface BaseType {
+  id: string;
+  name: string;
+  typeName: string;
+  slot: EquipSlot;
+  itemClass: string;
+  minLevel: number;
+  baseStats: Partial<PrimaryStats>;
+  implicit?: ImplicitModDef;
+  twoHanded: boolean;
+  classRestriction: HeroClass[];
+  iconClass: string;
+}
+
+// 装备实例（存档持久化）
 export interface Equipment {
   id: EntityId;
-  templateId: string;
+  baseTypeId: string;
   name: string;
   slot: EquipSlot;
   rarity: Rarity;
-  baseStats: Partial<PrimaryStats>;
-  affixes: Affix[];
-  element?: ElementKind;
+  itemLevel: number;
+  implicit?: RolledMod;
+  prefixes: RolledMod[];
+  suffixes: RolledMod[];
+  specialAffix?: RolledMod;
+  enchantments?: RolledMod[];
+  corrupted?: boolean;
   requiredLevel: number;
   icon: string;
 }
+
+/** @deprecated 使用 RolledMod 代替 */
+export type Affix = RolledMod;
 
 // ─── 技能系统 ─────────────────────────────────────────
 

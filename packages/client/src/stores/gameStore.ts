@@ -10,6 +10,7 @@ import { generateEquipment } from '@shared/logic/loot';
 import { DEFAULT_BUILDINGS, createDefaultHero } from '@shared/constants/defaults';
 import { DEFAULT_RESOURCES } from '@shared/constants/resources';
 import { LEVELS } from '@shared/constants/levels';
+import { SLOT_ORDER, BASE_TYPES, calcSellPrice } from '@shared/constants/equipment';
 import { resetTalents, learnTalent, refundTalent, calcHeroMaxHp, initTurnState, runTurn, runEnemyTurn, calcBattleReward } from '@shared/logic/turnBasedCombat';
 import type { TurnAction } from '@shared/types';
 import { GAME_BALANCE } from '@shared/constants/balance';
@@ -36,7 +37,9 @@ interface GameState {
   addResources: (patch: Partial<Resources>) => void;
   spendResources: (patch: Partial<Resources>) => boolean;
   addToInventory: (item: Equipment) => void;
-  equipItem: (item: Equipment, slotIndex: number) => void;
+  equipItem: (item: Equipment) => void;
+  unequipItem: (slotIndex: number) => void;
+  sellItem: (item: Equipment) => void;
   learnTalentNode: (nodeId: string) => void;
   refundTalentNode: (nodeId: string) => void;
   resetAllTalents: () => void;
@@ -53,7 +56,7 @@ interface GameState {
 }
 
 const STORAGE_KEY = 'darkloop_save';
-const SAVE_VERSION = 3;
+const SAVE_VERSION = 4;
 
 export const useGameStore = create<GameState>((set, get) => ({
   hero: null,
@@ -78,15 +81,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     const initialProgress: Record<string, LevelProgress> = {};
     for (const lv of LEVELS) initialProgress[lv.id] = { cleared: false, stars: 0, firstClearClaimed: false };
     
-    // 生成一套战士的各稀有度装备（白、绿、蓝、紫、橙、红、彩）用于测试
+    // 生成一套战士的各稀有度装备用于测试
     const testEquipments = [
-      generateEquipment(1, 0, EquipSlot.Weapon, ['universal', 'warrior'], Rarity.Common),
-      generateEquipment(1, 0, EquipSlot.Helmet, ['universal', 'warrior'], Rarity.Fine),
-      generateEquipment(1, 0, EquipSlot.Armor, ['universal', 'warrior'], Rarity.Rare),
-      generateEquipment(1, 0, EquipSlot.Boots, ['universal', 'warrior'], Rarity.Epic),
-      generateEquipment(1, 0, EquipSlot.Ring, ['universal', 'warrior'], Rarity.Legendary),
-      generateEquipment(1, 0, EquipSlot.Amulet, ['universal', 'warrior'], Rarity.Mythic),
-      generateEquipment(1, 0, EquipSlot.Weapon, ['universal', 'warrior'], Rarity.Apex),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Weapon, forceRarity: Rarity.Normal }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Helmet, forceRarity: Rarity.Magic }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Armor, forceRarity: Rarity.Rare }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Boots, forceRarity: Rarity.Epic }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Ring1, forceRarity: Rarity.Legendary }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.Amulet, forceRarity: Rarity.Legendary }),
+      generateEquipment(1, HeroClass.Warrior, { forcedSlot: EquipSlot.OffHand, forceRarity: Rarity.Rare }),
     ];
 
     set({ 
@@ -127,15 +130,73 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   addToInventory: (item) => set((s) => ({ inventory: [...s.inventory, item] })),
 
-  equipItem: (item, slotIndex) =>
+  equipItem: (item) =>
     set((s) => {
       if (!s.hero) return s;
-      const newEquipment = [...s.hero.equipment];
-      const oldItem = newEquipment[slotIndex];
-      newEquipment[slotIndex] = item;
-      const newInventory = s.inventory.filter((i) => i.id !== item.id);
+      const equipment = [...s.hero.equipment];
+      // 确保数组长度足够
+      while (equipment.length < SLOT_ORDER.length) equipment.push(undefined as any);
+      let newInventory = s.inventory.filter((i) => i.id !== item.id);
+
+      // 确定目标槽位索引
+      let targetIdx: number;
+      if (item.slot === EquipSlot.Ring1 || item.slot === EquipSlot.Ring2) {
+        const r1 = SLOT_ORDER.indexOf(EquipSlot.Ring1);
+        const r2 = SLOT_ORDER.indexOf(EquipSlot.Ring2);
+        if (!equipment[r1]) targetIdx = r1;
+        else if (!equipment[r2]) targetIdx = r2;
+        else targetIdx = r1; // 默认替换 Ring1
+      } else {
+        targetIdx = SLOT_ORDER.indexOf(item.slot);
+      }
+
+      // 双手武器逻辑
+      const baseType = BASE_TYPES.find(b => b.id === item.baseTypeId);
+      if (baseType?.twoHanded && item.slot === EquipSlot.Weapon) {
+        const offIdx = SLOT_ORDER.indexOf(EquipSlot.OffHand);
+        if (equipment[offIdx]) {
+          newInventory.push(equipment[offIdx]!);
+          equipment[offIdx] = undefined as any;
+        }
+      }
+      // 装备副手时检查双手武器
+      if (item.slot === EquipSlot.OffHand) {
+        const wpnIdx = SLOT_ORDER.indexOf(EquipSlot.Weapon);
+        const wpn = equipment[wpnIdx];
+        if (wpn) {
+          const wpnBase = BASE_TYPES.find(b => b.id === wpn.baseTypeId);
+          if (wpnBase?.twoHanded) {
+            newInventory.push(wpn);
+            equipment[wpnIdx] = undefined as any;
+          }
+        }
+      }
+
+      // 交换装备
+      const oldItem = equipment[targetIdx];
+      equipment[targetIdx] = item;
       if (oldItem) newInventory.push(oldItem);
-      return { hero: { ...s.hero, equipment: newEquipment }, inventory: newInventory };
+
+      return { hero: { ...s.hero, equipment }, inventory: newInventory };
+    }),
+
+  unequipItem: (slotIndex) =>
+    set((s) => {
+      if (!s.hero) return s;
+      const equipment = [...s.hero.equipment];
+      const item = equipment[slotIndex];
+      if (!item) return s;
+      equipment[slotIndex] = undefined as any;
+      return { hero: { ...s.hero, equipment }, inventory: [...s.inventory, item] };
+    }),
+
+  sellItem: (item) =>
+    set((s) => {
+      const price = calcSellPrice(item);
+      return {
+        inventory: s.inventory.filter((i) => i.id !== item.id),
+        resources: { ...s.resources, gold: s.resources.gold + price },
+      };
     }),
 
   learnTalentNode: (nodeId) =>

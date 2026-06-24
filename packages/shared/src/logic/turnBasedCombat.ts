@@ -707,12 +707,11 @@ export function calcBattleReward(
 
   // 运气影响掉落品质
   const dropRateBonus = hero.stats.luck * GAME_BALANCE.STAT_SCALARS.LUCK_TO_RARITY_BONUS;
-  const heroTags: AffixTag[] = ['universal', 'warrior'];
 
   const equipment: BattleRewardResult['equipment'] = [];
   const count = Math.floor(Math.random() * 3) + 1; // 1~3 items
   for (let i = 0; i < count; i++) {
-    equipment.push(generateEquipment(hero.level, dropRateBonus, undefined, heroTags));
+    equipment.push(generateEquipment(hero.level, hero.class, { dropRateBonus }));
   }
 
   return {
